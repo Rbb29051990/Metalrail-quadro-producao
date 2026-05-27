@@ -584,15 +584,9 @@ function renderGerarBar(){
   const next=nextWeekKey(currentWeek);
   const nextLbl=weekLabel(next).replace('Semana ','Sem. ');
   if(weekData.gerada){
-    wrap.innerHTML=`<div class="gerar-semana-bar gerada">
-      <span class="gerar-semana-info gerada">✅ Independentes — OS novas aqui ainda aparecem na ${nextLbl}</span>
-    </div>`;
+    wrap.innerHTML='';
   }else{
-    wrap.innerHTML=`<div class="gerar-semana-bar">
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <span class="espelho-badge">🔄 Espelho ativo</span>
-        <span class="gerar-semana-info">A ${nextLbl} espelha esta semana em tempo real</span>
-      </div>
+    wrap.innerHTML=`<div style="display:flex;justify-content:flex-end;margin-bottom:12px">
       <button class="btn-gerar" onclick="gerarProximaSemana()">📅 Gerar ${nextLbl}</button>
     </div>`;
   }
