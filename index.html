@@ -375,16 +375,28 @@ function minToTime(min){
 window.fmtTime=function(input){
   let v=input.value.replace(/[^0-9]/g,'');
   if(v.length>5)v=v.slice(0,5);
-  if(v.length>=3)v=v.slice(0,v.length-2)+':'+v.slice(-2);
-  else if(v.length===2)v='0:'+v;
-  input.value=v;
+  if(v.length>=3){
+    const h=parseInt(v.slice(0,v.length-2))||0;
+    const m=v.slice(-2);
+    input.value=h+':'+m;
+  } else if(v.length===2){
+    input.value='0:'+v;
+  } else {
+    input.value=v;
+  }
 };
 window.fmtCap=function(input){
   let v=input.value.replace(/[^0-9]/g,'');
   if(v.length>5)v=v.slice(0,5);
-  if(v.length>=3)v=v.slice(0,v.length-2)+':'+v.slice(-2);
-  else if(v.length===2)v='0:'+v;
-  input.value=v;
+  if(v.length>=3){
+    const h=parseInt(v.slice(0,v.length-2))||0;
+    const m=v.slice(-2);
+    input.value=h+':'+m;
+  } else if(v.length===2){
+    input.value='0:'+v;
+  } else {
+    input.value=v;
+  }
 };
 
 // ─── CONSTANTES ───────────────────────────────────
