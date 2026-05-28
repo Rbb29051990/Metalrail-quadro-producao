@@ -39,11 +39,12 @@
   .notice{background:#EEF2FF;border:1px solid #C7D2FE;border-radius:10px;padding:10px 16px;font-size:13px;font-weight:500;color:#4338CA;display:flex;align-items:center;gap:8px;margin-bottom:14px}
   .board{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:8px;align-items:start}
 
-  .col{border-radius:12px;padding:8px;min-height:180px;border:2px solid transparent}
-  .cards-list{max-height:420px;overflow-y:auto;overflow-x:hidden;padding-right:2px}
+  .col{border-radius:12px;padding:8px;border:2px solid transparent}
+  .cards-list{overflow-y:auto;overflow-x:hidden;max-height:460px;padding-right:3px}
   .cards-list::-webkit-scrollbar{width:4px}
   .cards-list::-webkit-scrollbar-track{background:transparent}
-  .cards-list::-webkit-scrollbar-thumb{background:rgba(0,0,0,0.15);border-radius:2px}
+  .cards-list::-webkit-scrollbar-thumb{background:rgba(0,0,0,0.2);border-radius:2px}
+  .cards-list::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,0.35)}
   .col-fila {background:#F1F5F9;border-color:#CBD5E1}
   .col-laser{background:#EDE9FE;border-color:#C4B5FD}
   .col-dobra{background:#DBEAFE;border-color:#93C5FD}
