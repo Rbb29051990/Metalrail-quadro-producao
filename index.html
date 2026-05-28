@@ -474,10 +474,17 @@ function getSemanaLimite(){
   return nextWeekKey(currentWeek);
 }
 
-function atualizarBotoesNav(){
+async function atualizarBotoesNav(){
   const hoje=weekKeyFromDate(new Date());
-  // Pode avançar se: semana atual foi gerada OU é a semana atual do calendário
-  const podeAvancar = weekData.gerada || currentWeek===hoje;
+  // Pode avançar se:
+  // - É a semana atual do calendário
+  // - OU a semana anterior foi gerada
+  let podeAvancar = currentWeek===hoje;
+  if(!podeAvancar){
+    const prev=prevWeekKey(currentWeek);
+    const prevSnap=await getDoc(docRef(prev));
+    if(prevSnap.exists()&&prevSnap.data().gerada===true) podeAvancar=true;
+  }
 
   const btnNext = document.getElementById('btn-week-next');
   if(btnNext){
@@ -487,7 +494,6 @@ function atualizarBotoesNav(){
     btnNext.style.pointerEvents = podeAvancar ? 'auto' : 'none';
   }
 
-  // Desempenho: mesma regra
   const btnNextD = document.getElementById('btn-desemp-next');
   if(btnNextD){
     btnNextD.disabled = !podeAvancar;
@@ -726,9 +732,15 @@ async function loadWeek(week){
 window.changeWeek=async function(dir){
   if(dir>0){
     const hoje=weekKeyFromDate(new Date());
-    // Regra: só pode avançar se a semana atual foi gerada
-    // OU se é a semana atual do calendário (pode ir para o espelho natural)
-    const podeAvancar = weekData.gerada || currentWeek===hoje;
+    // Pode avançar se:
+    // - É a semana atual do calendário (espelho natural)
+    // - OU a semana anterior (prev da atual) foi gerada
+    let podeAvancar = currentWeek===hoje;
+    if(!podeAvancar){
+      const prev=prevWeekKey(currentWeek);
+      const prevSnap=await getDoc(docRef(prev));
+      if(prevSnap.exists()&&prevSnap.data().gerada===true) podeAvancar=true;
+    }
     if(!podeAvancar) return;
   }
   const [yr,wn]=currentWeek.split('-W');
