@@ -508,8 +508,8 @@ async function syncToNext(){
   let modified=false;
 
   if(!nextGerada){
-    // Semana seguinte ainda é espelho: recria do zero com os pendentes atuais
-    // preservando capacidades já definidas lá
+    // Só espelha a semana IMEDIATAMENTE seguinte
+    // Não propaga para semanas além desta
     const caps=nextData.caps||{};
     const snapshot={
       cards: pendentes.map((c,i)=>({
@@ -575,29 +575,37 @@ window.gerarProximaSemana=async function(){
 // ─── LOAD WEEK ─────────────────────────────────────
 // Sincroniza a semana atual a partir da semana anterior
 // Roda sempre ao navegar para qualquer semana
+// syncFromPrev: só sincroniza se a semana anterior é a MÃE da semana atual
+// A mãe é definida pelo parentWeek gravado no documento
 async function syncFromPrev(week){
   const prev=prevWeekKey(week);
+  const currSnap=await getDoc(docRef(week));
+  const currData=currSnap.exists()?currSnap.data():null;
+
+  // Se a semana atual já existe e tem parentWeek diferente da anterior, NÃO sincroniza
+  if(currData && currData.parentWeek && currData.parentWeek!==prev) return;
+
+  // Se a semana atual já existe e NÃO tem parentWeek definido e não é o espelho natural
+  // (espelho natural = semana imediatamente seguinte à última gerada)
+  // Verificar se a semana anterior foi gerada
   const prevSnap=await getDoc(docRef(prev));
-  if(!prevSnap.exists())return;
+  if(!prevSnap.exists()) return; // sem semana anterior, nada a fazer
 
   const prevData=prevSnap.data();
-  const currSnap=await getDoc(docRef(week));
-  const currData=currSnap.exists()?currSnap.data():{cards:[],caps:{},nextId:1,gerada:false,parentWeek:null};
 
-  // REGRA PRINCIPAL: só sincroniza se a semana anterior é a mãe declarada
-  // OU se a semana atual ainda não tem dados (nunca foi criada)
-  const parentWeek=currData.parentWeek||null;
-  const currExiste=currSnap.exists();
+  // Só a semana imediatamente seguinte à anterior pode ser espelhada
+  // Regra: a semana atual SÓ pode espelhar a anterior se:
+  // - A anterior foi gerada (gerada:true) E o parentWeek da atual aponta para a anterior
+  // - OU a anterior NÃO foi gerada E a semana atual é a nextWeekKey da anterior (espelho natural)
 
-  // Se já existe e tem uma mãe diferente da semana anterior, não sincroniza
-  if(currExiste && parentWeek && parentWeek!==prev) return;
+  const isEspelhoNatural = nextWeekKey(prev)===week && !prevData.gerada;
+  const isMaeDeclarada = currData && currData.parentWeek===prev;
 
-  // Se a semana anterior não foi gerada (ainda é espelho de alguém), não propaga
-  if(!prevData.gerada && currExiste && parentWeek) return;
+  if(!isEspelhoNatural && !isMaeDeclarada) return; // não é responsabilidade desta semana
 
-  const caps=currData.caps||{};
+  const caps=currData?currData.caps||{}:{};
 
-  if(currData.gerada){
+  if(currData && currData.gerada){
     // Semana atual já independente: só adiciona novas e remove concluídas da mãe
     const conclOS=new Set(prevData.cards.filter(c=>c.col==='conc').map(c=>c.os));
     const antes=currData.cards.length;
@@ -620,10 +628,7 @@ async function syncFromPrev(week){
     return;
   }
 
-  // Semana atual não gerada: espelha completamente a anterior
-  // Só faz isso se a anterior FOI gerada (é independente)
-  if(!prevData.gerada && currExiste) return;
-
+  // Espelha completamente a semana anterior
   const pendentes=prevData.cards.filter(c=>c.col!=='conc');
   const snapshot={
     cards:pendentes.map((card,i)=>({
@@ -1225,14 +1230,16 @@ window.searchOS = async function(query){
   resultsEl.style.display='';
   resultsEl.innerHTML='<div class="search-empty">🔍 Buscando...</div>';
 
-  // Busca em todas as semanas disponíveis
-  // Lista as semanas a buscar: semana atual ± 12 semanas
+  // Busca apenas em semanas passadas + semana atual (NUNCA futuras)
+  // Evita duplicatas de cards espelhados em semanas futuras
   const results = [];
   const promises = [];
-  for(let offset=-12; offset<=12; offset++){
+  for(let offset=-12; offset<=0; offset++){
     const d = new Date();
     d.setDate(d.getDate()+offset*7);
     const wk = weekKeyFromDate(d);
+    // Não busca além da semana atual
+    if(wk>currentWeek) continue;
     promises.push(
       getDoc(docRef(wk)).then(snap=>{
         if(!snap.exists()) return;
