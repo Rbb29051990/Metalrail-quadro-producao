@@ -519,7 +519,8 @@ async function syncToNext(){
       })),
       caps,
       nextId:pendentes.length+1,
-      gerada:false
+      gerada:false,
+      parentWeek:currentWeek
     };
     await setDoc(docRef(next),snapshot);
     return;
@@ -553,7 +554,7 @@ async function syncToNext(){
 
 // ─── GERAR PRÓXIMA SEMANA ──────────────────────────
 window.gerarProximaSemana=async function(){
-  if(!confirm('Confirma? As semanas se tornam independentes.\nOS novas da semana 22 ainda aparecerão na 23, mas movimentos não serão espelhados.')) return;
+  if(!confirm('Confirma? As semanas se tornam independentes.')) return;
   const next=nextWeekKey(currentWeek);
   const nextSnap=await getDoc(docRef(next));
   const caps=nextSnap.exists()?(nextSnap.data().caps||{}):{};
@@ -562,10 +563,10 @@ window.gerarProximaSemana=async function(){
     cards:pendentes.map((c,i)=>({...JSON.parse(JSON.stringify(c)),id:i+1,carriedFrom:currentWeek})),
     caps,
     nextId:pendentes.length+1,
-    gerada:false // a próxima começa não-gerada
+    gerada:false,
+    parentWeek:currentWeek // registra quem é a semana mãe
   };
   await setDoc(docRef(next),snapshot);
-  // Marca semana ATUAL como gerada
   weekData.gerada=true;
   await saveWeek(false);
   renderGerarBar();
@@ -577,23 +578,33 @@ window.gerarProximaSemana=async function(){
 async function syncFromPrev(week){
   const prev=prevWeekKey(week);
   const prevSnap=await getDoc(docRef(prev));
-  if(!prevSnap.exists())return; // sem semana anterior, nada a fazer
+  if(!prevSnap.exists())return;
 
   const prevData=prevSnap.data();
   const currSnap=await getDoc(docRef(week));
-  const currData=currSnap.exists()?currSnap.data():{cards:[],caps:{},nextId:1,gerada:false};
+  const currData=currSnap.exists()?currSnap.data():{cards:[],caps:{},nextId:1,gerada:false,parentWeek:null};
 
-  // Se a semana atual já foi gerada como independente:
-  // só adiciona OS novas da anterior e remove as concluídas lá
+  // REGRA PRINCIPAL: só sincroniza se a semana anterior é a mãe declarada
+  // OU se a semana atual ainda não tem dados (nunca foi criada)
+  const parentWeek=currData.parentWeek||null;
+  const currExiste=currSnap.exists();
+
+  // Se já existe e tem uma mãe diferente da semana anterior, não sincroniza
+  if(currExiste && parentWeek && parentWeek!==prev) return;
+
+  // Se a semana anterior não foi gerada (ainda é espelho de alguém), não propaga
+  if(!prevData.gerada && currExiste && parentWeek) return;
+
+  const caps=currData.caps||{};
+
   if(currData.gerada){
+    // Semana atual já independente: só adiciona novas e remove concluídas da mãe
     const conclOS=new Set(prevData.cards.filter(c=>c.col==='conc').map(c=>c.os));
     const antes=currData.cards.length;
-    // Remove OS que foram concluídas na semana anterior
     currData.cards=currData.cards.filter(c=>{
       if(c.carriedFrom===prev&&conclOS.has(c.os))return false;
       return true;
     });
-    // Adiciona OS novas pendentes que ainda não estão na semana atual
     const osNaAtual=new Set(currData.cards.map(c=>c.os));
     const novas=prevData.cards.filter(c=>c.col!=='conc'&&!osNaAtual.has(c.os));
     novas.forEach(card=>{
@@ -609,8 +620,10 @@ async function syncFromPrev(week){
     return;
   }
 
-  // Semana atual ainda NÃO foi gerada: recria como espelho completo da anterior
-  const caps=currData.caps||{};
+  // Semana atual não gerada: espelha completamente a anterior
+  // Só faz isso se a anterior FOI gerada (é independente)
+  if(!prevData.gerada && currExiste) return;
+
   const pendentes=prevData.cards.filter(c=>c.col!=='conc');
   const snapshot={
     cards:pendentes.map((card,i)=>({
@@ -620,7 +633,8 @@ async function syncFromPrev(week){
     })),
     caps,
     nextId:pendentes.length+1,
-    gerada:false
+    gerada:false,
+    parentWeek:prev
   };
   await setDoc(docRef(week),snapshot);
 }
