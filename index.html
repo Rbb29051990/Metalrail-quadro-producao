@@ -476,35 +476,24 @@ function getSemanaLimite(){
 
 function atualizarBotoesNav(){
   const hoje=weekKeyFromDate(new Date());
-  // Pode avançar do quadro se:
-  // - Semana atual foi gerada (gerada:true) → pode ir para a próxima
-  // - OU semana atual é a semana do calendário atual ou anterior → espelho natural
-  const ehSemanaAtualOuAnterior = currentWeek <= hoje;
-  const podeAvancarQuadro = weekData.gerada || ehSemanaAtualOuAnterior;
-  // Mas só até o limite (uma semana além)
-  const limite = getSemanaLimite();
-  const next = nextWeekKey(currentWeek);
-  const bloqueadoQuadro = next > limite && !weekData.gerada;
+  // Pode avançar se: semana atual foi gerada OU é a semana atual do calendário
+  const podeAvancar = weekData.gerada || currentWeek===hoje;
 
   const btnNext = document.getElementById('btn-week-next');
   if(btnNext){
-    const habilitado = podeAvancarQuadro && !bloqueadoQuadro;
-    btnNext.disabled = !habilitado;
-    btnNext.style.opacity = habilitado ? '1' : '0.35';
-    btnNext.style.cursor = habilitado ? 'pointer' : 'not-allowed';
-    btnNext.style.pointerEvents = habilitado ? 'auto' : 'none';
+    btnNext.disabled = !podeAvancar;
+    btnNext.style.opacity = podeAvancar ? '1' : '0.35';
+    btnNext.style.cursor = podeAvancar ? 'pointer' : 'not-allowed';
+    btnNext.style.pointerEvents = podeAvancar ? 'auto' : 'none';
   }
 
-  // Desempenho: mesma lógica baseada na semana do quadro
+  // Desempenho: mesma regra
   const btnNextD = document.getElementById('btn-desemp-next');
   if(btnNextD){
-    const nextD = nextWeekKey(desempWeek);
-    const limiteD = getSemanaLimite();
-    const habilitadoD = nextD <= limiteD || weekData.gerada;
-    btnNextD.disabled = !habilitadoD;
-    btnNextD.style.opacity = habilitadoD ? '1' : '0.35';
-    btnNextD.style.cursor = habilitadoD ? 'pointer' : 'not-allowed';
-    btnNextD.style.pointerEvents = habilitadoD ? 'auto' : 'none';
+    btnNextD.disabled = !podeAvancar;
+    btnNextD.style.opacity = podeAvancar ? '1' : '0.35';
+    btnNextD.style.cursor = podeAvancar ? 'pointer' : 'not-allowed';
+    btnNextD.style.pointerEvents = podeAvancar ? 'auto' : 'none';
   }
 }
 
@@ -736,25 +725,11 @@ async function loadWeek(week){
 // ─── NAVEGAÇÃO ─────────────────────────────────────
 window.changeWeek=async function(dir){
   if(dir>0){
-    // Destino seria currentWeek + 1
-    // Limite é currentWeek + 1 (só pode ir até a próxima)
-    // Logo ao tentar ir da semana 23 para 24, verifica se 23 foi gerada
-    // Se não foi gerada, bloqueado
-    const destino=nextWeekKey(currentWeek);
-    // Só permite avançar se a semana ATUAL já foi gerada (gerada:true)
-    // OU se estamos indo para a semana imediatamente seguinte à semana atual original
-    // Para simplificar: só pode avançar se weekData.gerada === true
-    // Exceto da semana corrente do calendário para a próxima (espelho natural)
     const hoje=weekKeyFromDate(new Date());
-    const ehSemanaAtualOuAnterior = currentWeek <= hoje;
-    if(!weekData.gerada && !ehSemanaAtualOuAnterior){
-      return; // bloqueado
-    }
-    // Se não foi gerada, só pode ir até a próxima semana (espelho)
-    if(!weekData.gerada){
-      const limite=getSemanaLimite();
-      if(destino>limite) return;
-    }
+    // Regra: só pode avançar se a semana atual foi gerada
+    // OU se é a semana atual do calendário (pode ir para o espelho natural)
+    const podeAvancar = weekData.gerada || currentWeek===hoje;
+    if(!podeAvancar) return;
   }
   const [yr,wn]=currentWeek.split('-W');
   const d=new Date(Number(yr),0,1+(Number(wn)-1)*7);
