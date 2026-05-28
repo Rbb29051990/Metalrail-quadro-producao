@@ -476,36 +476,45 @@ function getSemanaLimite(){
 
 async function atualizarBotoesNav(){
   const hoje=weekKeyFromDate(new Date());
-  const destino=nextWeekKey(currentWeek);
-  let podeAvancar = false;
 
-  if(destino<=hoje){
-    // Destino ainda é passado → livre
-    podeAvancar = true;
+  // ── Botão NEXT do Quadro ──────────────────────────
+  const destinoQuadro=nextWeekKey(currentWeek);
+  let podeAvancarQuadro = false;
+  if(destinoQuadro<=hoje){
+    podeAvancarQuadro = true;
   } else if(currentWeek===hoje){
-    // Da semana atual para a próxima → sempre pode (espelho natural)
-    podeAvancar = true;
+    podeAvancarQuadro = true;
   } else {
-    // Futuro: só avança se a semana anterior foi gerada
     const prev=prevWeekKey(currentWeek);
     const prevSnap=await getDoc(docRef(prev));
-    if(prevSnap.exists()&&prevSnap.data().gerada===true) podeAvancar=true;
+    if(prevSnap.exists()&&prevSnap.data().gerada===true) podeAvancarQuadro=true;
   }
-
   const btnNext = document.getElementById('btn-week-next');
   if(btnNext){
-    btnNext.disabled = !podeAvancar;
-    btnNext.style.opacity = podeAvancar ? '1' : '0.35';
-    btnNext.style.cursor = podeAvancar ? 'pointer' : 'not-allowed';
-    btnNext.style.pointerEvents = podeAvancar ? 'auto' : 'none';
+    btnNext.disabled = !podeAvancarQuadro;
+    btnNext.style.opacity = podeAvancarQuadro ? '1' : '0.35';
+    btnNext.style.cursor = podeAvancarQuadro ? 'pointer' : 'not-allowed';
+    btnNext.style.pointerEvents = podeAvancarQuadro ? 'auto' : 'none';
   }
 
+  // ── Botão NEXT do Desempenho (usa desempWeek, independente do Quadro) ──
+  const destinoDesemp=nextWeekKey(desempWeek);
+  let podeAvancarDesemp = false;
+  if(destinoDesemp<=hoje){
+    podeAvancarDesemp = true;
+  } else if(desempWeek===hoje){
+    podeAvancarDesemp = true;
+  } else {
+    const prev=prevWeekKey(desempWeek);
+    const prevSnap=await getDoc(docRef(prev));
+    if(prevSnap.exists()&&prevSnap.data().gerada===true) podeAvancarDesemp=true;
+  }
   const btnNextD = document.getElementById('btn-desemp-next');
   if(btnNextD){
-    btnNextD.disabled = !podeAvancar;
-    btnNextD.style.opacity = podeAvancar ? '1' : '0.35';
-    btnNextD.style.cursor = podeAvancar ? 'pointer' : 'not-allowed';
-    btnNextD.style.pointerEvents = podeAvancar ? 'auto' : 'none';
+    btnNextD.disabled = !podeAvancarDesemp;
+    btnNextD.style.opacity = podeAvancarDesemp ? '1' : '0.35';
+    btnNextD.style.cursor = podeAvancarDesemp ? 'pointer' : 'not-allowed';
+    btnNextD.style.pointerEvents = podeAvancarDesemp ? 'auto' : 'none';
   }
 }
 
@@ -644,69 +653,83 @@ window.gerarProximaSemana=async function(){
   };
   await setDoc(docRef(next),snapshot);
   weekData.gerada=true;
+  // Força save direto sem depender da guarda isSaving
+  isSaving=false;
   await saveWeek(false);
   renderGerarBar();
 };
 
 // ─── LOAD WEEK ─────────────────────────────────────
-// Sincroniza a semana atual a partir da semana anterior
-// Roda sempre ao navegar para qualquer semana
-// syncFromPrev: só sincroniza se a semana anterior é a MÃE da semana atual
-// A mãe é definida pelo parentWeek gravado no documento
+// syncFromPrev: sincroniza a semana atual a partir da semana anterior (sua mãe).
+// Só age se a semana atual declarar parentWeek === semana anterior.
+// Se a semana NÃO foi gerada (espelho), preserva cards adicionados diretamente
+// nela (sem carriedFrom) e apenas atualiza os cards espelhados.
 async function syncFromPrev(week){
   const prev=prevWeekKey(week);
   const currSnap=await getDoc(docRef(week));
   const currData=currSnap.exists()?currSnap.data():null;
 
-  // REGRA 1: Se a semana atual já existe e tem parentWeek diferente da anterior → NÃO sincroniza
-  if(currData && currData.parentWeek && currData.parentWeek!==prev) return;
-
-  // REGRA 2: Se a semana atual NÃO existe ainda → só cria se tiver parentWeek declarado
-  // Semanas futuras sem parentWeek ficam VAZIAS até serem geradas via botão
+  // Só sincroniza se existe e a mãe declarada é a semana anterior
   if(!currData) return;
-
-  // REGRA 3: A semana atual existe e tem parentWeek apontando para a anterior → sincroniza
-  const isMaeDeclarada = currData.parentWeek===prev;
-  if(!isMaeDeclarada) return;
+  if(currData.parentWeek!==prev) return;
 
   const prevSnap=await getDoc(docRef(prev));
   if(!prevSnap.exists()) return;
   const prevData=prevSnap.data();
   const caps=currData.caps||{};
 
+  // OS concluídas na semana mãe
+  const conclOS=new Set(prevData.cards.filter(c=>c.col==='conc').map(c=>c.os));
+  // Pendentes da semana mãe
+  const pendentes=prevData.cards.filter(c=>c.col!=='conc');
+
   if(currData.gerada){
-    // Semana independente: só adiciona novas e remove concluídas da mãe
-    const conclOS=new Set(prevData.cards.filter(c=>c.col==='conc').map(c=>c.os));
+    // Semana independente: só adiciona novas OS e remove as que foram concluídas na mãe
+    let modified=false;
     const antes=currData.cards.length;
     currData.cards=currData.cards.filter(c=>{
       if(c.carriedFrom===prev&&conclOS.has(c.os))return false;
       return true;
     });
+    if(currData.cards.length<antes) modified=true;
     const osNaAtual=new Set(currData.cards.map(c=>c.os));
-    const novas=prevData.cards.filter(c=>c.col!=='conc'&&!osNaAtual.has(c.os));
-    novas.forEach(card=>{
-      const copia=JSON.parse(JSON.stringify(card));
-      copia.id=currData.nextId++;
-      copia.carriedFrom=prev;
-      delete copia.ordem;
-      currData.cards.push(copia);
+    pendentes.forEach(card=>{
+      if(!osNaAtual.has(card.os)){
+        const copia=JSON.parse(JSON.stringify(card));
+        copia.id=currData.nextId++;
+        copia.carriedFrom=prev;
+        delete copia.ordem;
+        currData.cards.push(copia);
+        modified=true;
+      }
     });
-    if(currData.cards.length!==antes||novas.length>0){
-      await setDoc(docRef(week),currData);
-    }
+    if(modified) await setDoc(docRef(week),currData);
     return;
   }
 
-  // Espelha completamente a semana mãe
-  const pendentes=prevData.cards.filter(c=>c.col!=='conc');
+  // Semana NÃO gerada (espelho):
+  // Cards adicionados diretamente nesta semana (sem carriedFrom ou carriedFrom diferente)
+  const cardsDirectos=currData.cards.filter(c=>!c.carriedFrom||c.carriedFrom!==prev);
+  // Cards espelhados da mãe que ainda NÃO foram concluídos na mãe
+  const cardsEspelhados=pendentes.map((card,i)=>({
+    ...JSON.parse(JSON.stringify(card)),
+    carriedFrom:prev
+  }));
+  // Remove espelhados que já foram concluídos na mãe; mantém diretos intactos
+  const osDirectas=new Set(cardsDirectos.map(c=>c.os));
+  const espelhadosFiltrados=cardsEspelhados.filter(c=>!osDirectas.has(c.os));
+
+  // Remonta cards: diretos preservados + espelhados atualizados
+  let nextId=1;
+  const cardsMesclados=[
+    ...cardsDirectos.map(c=>({...c,id:nextId++})),
+    ...espelhadosFiltrados.map(c=>({...c,id:nextId++}))
+  ];
+
   const snapshot={
-    cards:pendentes.map((card,i)=>({
-      ...JSON.parse(JSON.stringify(card)),
-      id:i+1,
-      carriedFrom:prev
-    })),
+    cards:cardsMesclados,
     caps,
-    nextId:pendentes.length+1,
+    nextId,
     gerada:false,
     parentWeek:prev
   };
@@ -731,9 +754,19 @@ async function loadWeek(week){
     renderGerarBar();
     render();
     atualizarBotoesNav();
-    // Espelha para próxima semana APENAS se esta semana ainda NÃO foi gerada
-    // Garante que semana não gerada sempre espelha para a imediatamente seguinte
-    if(!weekData.gerada && !isSaving) syncToNext();
+    // BUG 2 FIX: syncToNext só roda se esta semana é a MÃE da próxima.
+    // Verifica se a semana seguinte tem parentWeek apontando para a atual,
+    // ou se ainda não existe (será criada pelo espelho).
+    // NUNCA roda quando estamos visualizando uma semana filha/espelho.
+    if(!weekData.gerada && !isSaving){
+      const next=nextWeekKey(week);
+      getDoc(docRef(next)).then(nextSnap=>{
+        // Só espelha se a próxima ainda não existe OU se o parentWeek dela aponta para esta semana
+        if(!nextSnap.exists()||nextSnap.data().parentWeek===week){
+          syncToNext();
+        }
+      });
+    }
   },()=>setSyncStatus('err'));
 }
 
@@ -1135,19 +1168,35 @@ window.printBoard=function(){
 
 // ─── ABA DESEMPENHO ────────────────────────────────
 let desempWeek=weekKeyFromDate(new Date());
+let desempInicializado=false;
 window.switchTab=function(tab){
   document.getElementById('tab-quadro').classList.toggle('active',tab==='quadro');
   document.getElementById('tab-desempenho').classList.toggle('active',tab==='desempenho');
   document.getElementById('main-quadro').style.display=tab==='quadro'?'':'none';
   document.getElementById('main-desempenho').style.display=tab==='desempenho'?'':'none';
-  if(tab==='desempenho'){desempWeek=currentWeek;renderDesempenho();}
+  if(tab==='desempenho'){
+    // Só inicializa desempWeek na primeira vez que abre a aba
+    // Nas demais, preserva a posição de semana que o usuário estava navegando
+    if(!desempInicializado){desempWeek=currentWeek;desempInicializado=true;}
+    renderDesempenho();
+    atualizarBotoesNav();
+  }
 };
 window.changeDesempWeek=async function(dir){
   if(dir>0){
-    // Verifica limite antes de avançar
-    const limite=getSemanaLimite();
-    const next=nextWeekKey(desempWeek);
-    if(next>limite) return;
+    const hoje=weekKeyFromDate(new Date());
+    const destino=nextWeekKey(desempWeek);
+    let podeAvancar=false;
+    if(destino<=hoje){
+      podeAvancar=true;
+    } else if(desempWeek===hoje){
+      podeAvancar=true;
+    } else {
+      const prev=prevWeekKey(desempWeek);
+      const prevSnap=await getDoc(docRef(prev));
+      if(prevSnap.exists()&&prevSnap.data().gerada===true) podeAvancar=true;
+    }
+    if(!podeAvancar) return;
   }
   const [yr,wn]=desempWeek.split('-W');
   const d=new Date(Number(yr),0,1+(Number(wn)-1)*7);
