@@ -37,10 +37,10 @@
 
   .main{padding:20px}
   .notice{background:#EEF2FF;border:1px solid #C7D2FE;border-radius:10px;padding:10px 16px;font-size:13px;font-weight:500;color:#4338CA;display:flex;align-items:center;gap:8px;margin-bottom:14px}
-  .board{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:8px;align-items:start}
+  .board{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:6px;align-items:start}
 
-  .col{border-radius:12px;padding:8px;border:2px solid transparent}
-  .cards-list{overflow-y:auto;overflow-x:hidden;max-height:330px}
+  .col{border-radius:10px;padding:6px;border:2px solid transparent}
+  .cards-list{overflow-y:auto;overflow-x:hidden;max-height:345px}
   .cards-list::-webkit-scrollbar{width:3px}
   .cards-list::-webkit-scrollbar-track{background:transparent}
   .cards-list::-webkit-scrollbar-thumb{background:rgba(83,74,183,0.25);border-radius:2px}
@@ -96,7 +96,7 @@
   .card-cli{font-size:10px;font-weight:500;color:#64748b;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .card-footer{display:flex;align-items:center;justify-content:space-between;margin-top:4px}
   .card-h{font-size:10px;font-weight:700;padding:2px 7px;border-radius:100px;background:#F1F5F9;color:#475569;display:inline-flex;align-items:center;gap:3px;letter-spacing:.3px}
-  .card-track{display:flex;gap:2px;margin-top:3px;flex-wrap:wrap}
+  .card-track{display:flex;gap:2px;margin-top:3px;flex-wrap:nowrap;overflow:hidden}
   .track-sq{width:16px;height:16px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:800;color:#fff;position:relative;opacity:.22;transition:opacity .2s;letter-spacing:0;flex-shrink:0}
   .track-sq.passed{opacity:1}
   .track-sq.passed::after{content:'';position:absolute;top:50%;left:10%;width:80%;height:2px;background:rgba(255,255,255,0.95);border-radius:1px;transform:translateY(-50%) rotate(-45deg)}
@@ -185,11 +185,10 @@
 
 
   /* BOTÃO GERAR SEMANA */
-  .gerar-semana-bar{display:flex;align-items:center;justify-content:space-between;background:#FFFBEB;border:1.5px solid #FCD34D;border-radius:10px;padding:10px 16px;margin-bottom:12px;gap:12px}
-  .gerar-semana-bar.gerada{background:#F0FDF4;border-color:#86EFAC}
+  .gerar-semana-bar{display:flex;align-items:center;gap:8px}
   .gerar-semana-info{font-size:12px;font-weight:600;color:#92400E}
   .gerar-semana-info.gerada{color:#166534}
-  .btn-gerar{height:34px;padding:0 16px;border:none;border-radius:8px;background:linear-gradient(135deg,#F59E0B,#D97706);color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',Arial,sans-serif;display:inline-flex;align-items:center;gap:6px;transition:all .15s}
+  .btn-gerar{height:30px;padding:0 12px;border:none;border-radius:8px;background:linear-gradient(135deg,#F59E0B,#D97706);color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',Arial,sans-serif;display:inline-flex;align-items:center;gap:5px;transition:all .15s}
   .btn-gerar:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(217,119,6,0.4)}
   .btn-gerar.gerada{background:linear-gradient(135deg,#22c55e,#16a34a);cursor:default;transform:none;box-shadow:none}
   .espelho-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:100px;background:#FEF3C7;color:#92400E;border:1px solid #FCD34D}
@@ -200,7 +199,7 @@
   .order-btn{width:22px;height:22px;border:1.5px solid #E2E8F0;border-radius:5px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;color:#64748b;transition:all .12s}
   .order-btn:hover{background:#534AB7;color:#fff;border-color:#534AB7}
 
-  .aba-week-nav{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+  .aba-week-nav{display:flex;align-items:center;gap:8px;margin-bottom:0}
   .urgente-toggle{display:flex;gap:8px}
   .urg-btn{flex:1;height:36px;border:2px solid #E2E8F0;border-radius:8px;background:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',Arial,sans-serif;color:#64748b;transition:all .15s}
   .urg-btn.active-nao{background:#FEE2E2;border-color:#FCA5A5;color:#dc2626}
@@ -209,7 +208,7 @@
   .card.urgente{border:2px solid #FCA5A5;background:#FFF5F5}
   .card.urgente .card-os{color:#dc2626}
   .urgente-badge{display:inline-flex;align-items:center;gap:2px;font-size:8px;font-weight:700;color:#dc2626;text-transform:uppercase;letter-spacing:.03em;margin-bottom:2px}
-  .aba-week-nav .week-lbl{font-size:15px;font-weight:700;color:#1a1a2e;min-width:220px;text-align:center}
+  .aba-week-nav .week-lbl{font-size:14px;font-weight:700;color:#1a1a2e;min-width:200px;text-align:center}
 
   .tab-nav{display:flex;gap:0;background:#13132a;padding:0 16px;border-bottom:2px solid rgba(255,255,255,0.07);align-items:center}
   .tab-btn{height:44px;padding:0 22px;border:none;background:none;color:rgba(255,255,255,0.45);font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',Arial,sans-serif;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .15s;display:inline-flex;align-items:center;gap:7px}
@@ -296,12 +295,12 @@
 <div id="search-results" style="display:none;position:absolute;z-index:50;left:0;right:0;padding:0 20px;top:44px;max-height:60vh;overflow-y:auto"></div></div>
 
 <div class="main" id="main-quadro">
-  <div class="aba-week-nav">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap">
     <button class="btn-nav prev" onclick="changeWeek(-1)">&#8249;</button>
-    <div class="week-lbl" id="week-lbl">Carregando...</div>
+    <div class="week-lbl" id="week-lbl" style="font-size:15px;font-weight:700;color:#1a1a2e;min-width:200px;text-align:center">Carregando...</div>
     <button class="btn-nav next" onclick="changeWeek(1)">&#8250;</button>
+    <div id="gerar-semana-bar-wrap"></div>
   </div>
-  <div id="gerar-semana-bar-wrap"></div>
   <div class="notice" id="notice" style="display:none"></div>
   <div id="loading" class="loading"><div class="spinner"></div> Conectando ao banco de dados...</div>
   <div class="board" id="board" style="display:none"></div>
@@ -607,9 +606,7 @@ function renderGerarBar(){
   if(weekData.gerada){
     wrap.innerHTML='';
   }else{
-    wrap.innerHTML=`<div style="display:flex;justify-content:flex-end;margin-bottom:12px">
-      <button class="btn-gerar" onclick="gerarProximaSemana()">📅 Gerar ${nextLbl}</button>
-    </div>`;
+    wrap.innerHTML=`<button class="btn-gerar" onclick="gerarProximaSemana()" style="white-space:nowrap">📅 Gerar ${nextLbl}</button>`;
   }
 }
 
