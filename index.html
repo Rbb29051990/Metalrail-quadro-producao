@@ -740,15 +740,36 @@ window.changeWeek=async function(dir){
 };
 
 // ─── BARRA GERAR SEMANA ────────────────────────────
-function renderGerarBar(){
+async function renderGerarBar(){
   const wrap=document.getElementById('gerar-semana-bar-wrap');
   if(!wrap)return;
   const next=nextWeekKey(currentWeek);
   const nextLbl=weekLabel(next).replace('Semana ','Sem. ');
+  const hoje=weekKeyFromDate(new Date());
+
   if(weekData.gerada){
+    // Semana atual já gerada — não mostra botão
     wrap.innerHTML='';
-  }else{
-    wrap.innerHTML=`<button class="btn-gerar" onclick="gerarProximaSemana()" style="white-space:nowrap">📅 Gerar ${nextLbl}</button>`;
+  } else {
+    // Verifica se pode mostrar o botão:
+    // Semana atual do calendário → sempre mostra
+    // Semana futura → só mostra se a semana ANTERIOR foi gerada
+    let podeGerar = false;
+    if(currentWeek===hoje){
+      podeGerar = true;
+    } else {
+      // Busca se a semana anterior foi gerada
+      const prev=prevWeekKey(currentWeek);
+      const prevSnap=await getDoc(docRef(prev));
+      if(prevSnap.exists()&&prevSnap.data().gerada===true){
+        podeGerar = true;
+      }
+    }
+    if(podeGerar){
+      wrap.innerHTML=`<button class="btn-gerar" onclick="gerarProximaSemana()" style="white-space:nowrap">📅 Gerar ${nextLbl}</button>`;
+    } else {
+      wrap.innerHTML='';
+    }
   }
   // Atualiza estado dos botões de navegação
   setTimeout(atualizarBotoesNav, 50);
