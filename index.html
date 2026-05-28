@@ -619,7 +619,15 @@ function getCardMin(card){
   return Math.round((parseFloat(card.horas)||0)*60);
 }
 function getCapMin(col){return parseInt(weekData.caps[col])||0;}
-function getUsedMin(col){return weekData.cards.filter(c=>c.col===col).reduce((a,c)=>a+getCardMin(c),0);}
+function getUsedMin(col){
+  // Conta horas do setor para TODOS os cards exceto os na fila de espera
+  return weekData.cards
+    .filter(c=>c.col!=='fila')
+    .reduce((a,card)=>{
+      const min=card.min_setor?parseInt(card.min_setor[col])||0:0;
+      return a+min;
+    },0);
+}
 function getSaldoMin(col){const cap=getCapMin(col);if(!cap)return null;return cap-getUsedMin(col);}
 function saldoClass(col){
   const s=getSaldoMin(col);if(s===null)return 'neu';
