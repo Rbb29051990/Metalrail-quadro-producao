@@ -632,11 +632,10 @@ function getUsedMin(col){
 function getSaldoMin(col){const cap=getCapMin(col);if(!cap)return null;return cap-getUsedMin(col);}
 function saldoClass(col){
   const cap=getCapMin(col);if(!cap)return 'neu';
-  const pct=capPct(col);
-  if(pct<=69)return 'over';       // vermelho
-  if(pct<=89)return 'warn';       // amarelo
-  if(pct<=120)return 'ok';        // verde
-  return 'over';                   // vermelho sobrecarga
+  const s=getSaldoMin(col);
+  if(s===null)return 'neu';
+  if(s<0)return 'over';   // negativo = vermelho
+  return 'ok';             // positivo ou zero = verde
 }
 function saldoText(col){
   const s=getSaldoMin(col);const used=getUsedMin(col);
@@ -648,11 +647,10 @@ function saldoText(col){
 function capPct(col){const cap=getCapMin(col);if(!cap)return 0;return Math.min(110,Math.round(getUsedMin(col)/cap*100));}
 function capColor(col){
   const cap=getCapMin(col);if(!cap)return '#CBD5E1';
-  const pct=capPct(col);
-  if(pct<=69)return '#ef4444';
-  if(pct<=89)return '#f59e0b';
-  if(pct<=120)return '#22c55e';
-  return '#ef4444'; // sobrecarga 121%+
+  const s=getSaldoMin(col);
+  if(s===null)return '#CBD5E1';
+  if(s<0)return '#ef4444';   // extra = vermelho
+  return '#22c55e';           // livre = verde
 }
 window.setCap=function(col,val){weekData.caps[col]=timeToMin(val);saveWeek();render();};
 
