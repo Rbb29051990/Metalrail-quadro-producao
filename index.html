@@ -572,11 +572,67 @@ window.gerarProximaSemana=async function(){
 };
 
 // ─── LOAD WEEK ─────────────────────────────────────
+// Sincroniza a semana atual a partir da semana anterior
+// Roda sempre ao navegar para qualquer semana
+async function syncFromPrev(week){
+  const prev=prevWeekKey(week);
+  const prevSnap=await getDoc(docRef(prev));
+  if(!prevSnap.exists())return; // sem semana anterior, nada a fazer
+
+  const prevData=prevSnap.data();
+  const currSnap=await getDoc(docRef(week));
+  const currData=currSnap.exists()?currSnap.data():{cards:[],caps:{},nextId:1,gerada:false};
+
+  // Se a semana atual já foi gerada como independente:
+  // só adiciona OS novas da anterior e remove as concluídas lá
+  if(currData.gerada){
+    const conclOS=new Set(prevData.cards.filter(c=>c.col==='conc').map(c=>c.os));
+    const antes=currData.cards.length;
+    // Remove OS que foram concluídas na semana anterior
+    currData.cards=currData.cards.filter(c=>{
+      if(c.carriedFrom===prev&&conclOS.has(c.os))return false;
+      return true;
+    });
+    // Adiciona OS novas pendentes que ainda não estão na semana atual
+    const osNaAtual=new Set(currData.cards.map(c=>c.os));
+    const novas=prevData.cards.filter(c=>c.col!=='conc'&&!osNaAtual.has(c.os));
+    novas.forEach(card=>{
+      const copia=JSON.parse(JSON.stringify(card));
+      copia.id=currData.nextId++;
+      copia.carriedFrom=prev;
+      delete copia.ordem;
+      currData.cards.push(copia);
+    });
+    if(currData.cards.length!==antes||novas.length>0){
+      await setDoc(docRef(week),currData);
+    }
+    return;
+  }
+
+  // Semana atual ainda NÃO foi gerada: recria como espelho completo da anterior
+  const caps=currData.caps||{};
+  const pendentes=prevData.cards.filter(c=>c.col!=='conc');
+  const snapshot={
+    cards:pendentes.map((card,i)=>({
+      ...JSON.parse(JSON.stringify(card)),
+      id:i+1,
+      carriedFrom:prev
+    })),
+    caps,
+    nextId:pendentes.length+1,
+    gerada:false
+  };
+  await setDoc(docRef(week),snapshot);
+}
+
 async function loadWeek(week){
   document.getElementById('loading').style.display='flex';
   document.getElementById('board').style.display='none';
   if(unsubscribeCurrent)unsubscribeCurrent();
   if(unsubscribeNext)unsubscribeNext();
+
+  // Sincroniza a partir da semana anterior ANTES de carregar
+  await syncFromPrev(week);
 
   unsubscribeCurrent=onSnapshot(docRef(week),(snap)=>{
     weekData=snap.exists()?snap.data():{cards:[],caps:{},nextId:1,gerada:false};
