@@ -40,7 +40,7 @@
   .board{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:6px;align-items:start}
 
   .col{border-radius:10px;padding:6px;border:2px solid transparent}
-  .cards-list{overflow-y:auto;overflow-x:hidden;max-height:480px}
+  .cards-list{overflow-y:auto;overflow-x:hidden;max-height:520px}
   .cards-list::-webkit-scrollbar{width:3px}
   .cards-list::-webkit-scrollbar-track{background:transparent}
   .cards-list::-webkit-scrollbar-thumb{background:rgba(83,74,183,0.25);border-radius:2px}
@@ -227,6 +227,7 @@
   .desemp-pct.yellow{color:#b45309}
   .desemp-pct.red{color:#dc2626}
   .desemp-pct.gray{color:#94a3b8}
+  .desemp-pct.over{color:#dc2626}
   .desemp-label{font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
   .desemp-bar-bg{height:6px;background:#F1F5F9;border-radius:3px;margin-bottom:12px;overflow:hidden}
   .desemp-bar-fill{height:100%;border-radius:3px;transition:width .5s}
@@ -630,10 +631,12 @@ function getUsedMin(col){
 }
 function getSaldoMin(col){const cap=getCapMin(col);if(!cap)return null;return cap-getUsedMin(col);}
 function saldoClass(col){
-  const s=getSaldoMin(col);if(s===null)return 'neu';
-  if(s<0)return 'over';
-  if(s<getCapMin(col)*0.2)return 'warn';
-  return 'ok';
+  const cap=getCapMin(col);if(!cap)return 'neu';
+  const pct=capPct(col);
+  if(pct<=69)return 'over';       // vermelho
+  if(pct<=89)return 'warn';       // amarelo
+  if(pct<=120)return 'ok';        // verde
+  return 'over';                   // vermelho sobrecarga
 }
 function saldoText(col){
   const s=getSaldoMin(col);const used=getUsedMin(col);
@@ -643,7 +646,14 @@ function saldoText(col){
   return `+${minToTime(s)} livre`;
 }
 function capPct(col){const cap=getCapMin(col);if(!cap)return 0;return Math.min(110,Math.round(getUsedMin(col)/cap*100));}
-function capColor(col){const s=getSaldoMin(col);if(s===null)return '#CBD5E1';if(s<0)return '#ef4444';if(saldoClass(col)==='warn')return '#f59e0b';return '#22c55e';}
+function capColor(col){
+  const cap=getCapMin(col);if(!cap)return '#CBD5E1';
+  const pct=capPct(col);
+  if(pct<=69)return '#ef4444';
+  if(pct<=89)return '#f59e0b';
+  if(pct<=120)return '#22c55e';
+  return '#ef4444'; // sobrecarga 121%+
+}
 window.setCap=function(col,val){weekData.caps[col]=timeToMin(val);saveWeek();render();};
 
 // ─── ORDENAÇÃO ─────────────────────────────────────
@@ -973,7 +983,7 @@ async function renderDesempenho(){
     <div class="summary-card"><div class="summary-icon" style="background:#EDE9FE">✅</div><div><div class="summary-val">${conc.length}</div><div class="summary-lbl">OS concluídas</div></div></div>
     <div class="summary-card"><div class="summary-icon" style="background:#FEF3C7">⚙</div><div><div class="summary-val" style="color:${naof.length>0?'#b45309':'#15803d'}">${naof.length}</div><div class="summary-lbl">OS não finalizadas</div></div></div>
     <div class="summary-card"><div class="summary-icon" style="background:#D1FAE5">⏱</div><div><div class="summary-val">${minToTime(totR)}</div><div class="summary-lbl">Horas realizadas</div></div></div>
-    <div class="summary-card"><div class="summary-icon" style="background:#DBEAFE">📈</div><div><div class="summary-val" style="color:${totO>=80?'#15803d':totO>=50?'#b45309':'#dc2626'}">${totC?totO+'%':'—'}</div><div class="summary-lbl">Ocupação geral</div></div></div>`;
+    <div class="summary-card"><div class="summary-icon" style="background:#DBEAFE">📈</div><div><div class="summary-val" style="color:${totO<=69?'#dc2626':totO<=89?'#b45309':totO<=120?'#15803d':'#dc2626'}">${totC?totO+'%':'—'}</div><div class="summary-lbl">Ocupação geral</div></div></div>`;
   const grid=document.getElementById('desemp-grid');
   if(!cards.length){grid.innerHTML='<div class="no-data" style="grid-column:1/-1"><div class="no-data-icon">📈</div>Nenhuma OS registrada nesta semana</div>';return;}
   grid.innerHTML=SP.map(col=>{
@@ -984,8 +994,9 @@ async function renderDesempenho(){
         passM+=(card.min_setor?parseInt(card.min_setor[col.id])||0:0);
     });
     const pct=capMin>0?Math.min(999,Math.round(passM/capMin*100)):0;
-    const pc=!capMin?'gray':pct>=80?'green':pct>=50?'yellow':'red';
-    const bc=!capMin?'#E2E8F0':pct>=80?'#22c55e':pct>=50?'#f59e0b':'#ef4444';
+    // 0-69%=vermelho, 70-89%=amarelo, 90-120%=verde, 121%+=vermelho
+    const pc=!capMin?'gray':pct<=69?'red':pct<=89?'yellow':pct<=120?'green':'red';
+    const bc=!capMin?'#E2E8F0':pct<=69?'#ef4444':pct<=89?'#f59e0b':pct<=120?'#22c55e':'#ef4444';
     // OS processadas = já passaram pelo setor (foram além)
     const osp=cards.filter(c=>FLUXO.indexOf(c.col)>FLUXO.indexOf(col.id)).length;
     // OS pendentes = ainda não chegaram ao setor
