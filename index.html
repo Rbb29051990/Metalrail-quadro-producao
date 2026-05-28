@@ -40,6 +40,10 @@
   .board{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:8px;align-items:start}
 
   .col{border-radius:12px;padding:8px;min-height:180px;border:2px solid transparent}
+  .cards-list{max-height:420px;overflow-y:auto;overflow-x:hidden;padding-right:2px}
+  .cards-list::-webkit-scrollbar{width:4px}
+  .cards-list::-webkit-scrollbar-track{background:transparent}
+  .cards-list::-webkit-scrollbar-thumb{background:rgba(0,0,0,0.15);border-radius:2px}
   .col-fila {background:#F1F5F9;border-color:#CBD5E1}
   .col-laser{background:#EDE9FE;border-color:#C4B5FD}
   .col-dobra{background:#DBEAFE;border-color:#93C5FD}
@@ -690,14 +694,24 @@ function setupCardDrop(el,cardId,colId){
   el.addEventListener('drop',async e=>{
     e.preventDefault();e.stopPropagation();
     el.style.borderTop='';el.style.borderBottom='';
-    if(dragId===null||dragId===cardId)return;
+    if(dragId===null)return;
+    const card=weekData.cards.find(x=>x.id===dragId);
+    if(!card)return;
+    if(dragId===cardId)return;
     if(dragSourceCol===colId){
+      // Reordenação dentro da mesma coluna
       const rect=el.getBoundingClientRect();
       const insertBefore=e.clientY<rect.top+rect.height/2;
       reorderInColumn(colId,dragId,cardId,insertBefore);
-      await saveWeek();
-      render();
+    } else {
+      // Movimento entre colunas — soltar sobre um card também funciona
+      card.col=colId;
+      const maxOrdem=weekData.cards.filter(c=>c.col===colId&&c.id!==card.id&&c.ordem!==undefined);
+      if(maxOrdem.length>0) card.ordem=Math.max(...maxOrdem.map(c=>c.ordem))+1;
+      else delete card.ordem;
     }
+    await saveWeek();
+    render();
   });
 }
 
