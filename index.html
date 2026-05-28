@@ -707,19 +707,33 @@ async function syncFromPrev(week){
     return;
   }
 
-  // Semana NÃO gerada (espelho):
-  // Cards adicionados diretamente nesta semana (sem carriedFrom ou carriedFrom diferente)
+  // Semana NAO gerada (espelho):
+  // Cards adicionados diretamente nesta semana (sem carriedFrom da mae)
   const cardsDirectos=currData.cards.filter(c=>!c.carriedFrom||c.carriedFrom!==prev);
-  // Cards espelhados da mãe que ainda NÃO foram concluídos na mãe
-  const cardsEspelhados=pendentes.map((card,i)=>({
-    ...JSON.parse(JSON.stringify(card)),
-    carriedFrom:prev
-  }));
-  // Remove espelhados que já foram concluídos na mãe; mantém diretos intactos
+  // Mapa de OS ja existentes na filha (espelhados) para preservar col movida
+  const osFilhaMap={};
+  currData.cards.filter(c=>c.carriedFrom===prev).forEach(c=>{osFilhaMap[c.os]=c;});
   const osDirectas=new Set(cardsDirectos.map(c=>c.os));
-  const espelhadosFiltrados=cardsEspelhados.filter(c=>!osDirectas.has(c.os));
 
-  // Remonta cards: diretos preservados + espelhados atualizados
+  // Para cada pendente da mae: preserva col se ja foi movido na filha
+  const espelhadosFiltrados=pendentes
+    .filter(c=>!osDirectas.has(c.os))
+    .map(card=>{
+      const jaExiste=osFilhaMap[card.os];
+      if(jaExiste){
+        return {
+          ...JSON.parse(JSON.stringify(card)),
+          col:jaExiste.col,
+          carriedFrom:prev
+        };
+      }
+      return {
+        ...JSON.parse(JSON.stringify(card)),
+        carriedFrom:prev
+      };
+    });
+
+  // Remonta cards: diretos preservados + espelhados com posicao respeitada
   let nextId=1;
   const cardsMesclados=[
     ...cardsDirectos.map(c=>({...c,id:nextId++})),
