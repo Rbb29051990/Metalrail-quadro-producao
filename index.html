@@ -40,7 +40,7 @@
   .board{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:6px;align-items:start}
 
   .col{border-radius:10px;padding:6px;border:2px solid transparent}
-  .cards-list{overflow-y:auto;overflow-x:hidden;max-height:485px}
+  .cards-list{overflow-y:auto;overflow-x:hidden;max-height:480px}
   .cards-list::-webkit-scrollbar{width:3px}
   .cards-list::-webkit-scrollbar-track{background:transparent}
   .cards-list::-webkit-scrollbar-thumb{background:rgba(83,74,183,0.25);border-radius:2px}
@@ -952,7 +952,14 @@ async function renderDesempenho(){
   const SP=COLS.filter(c=>!c.noCap);
   const conc=cards.filter(c=>c.col==='conc'),naof=cards.filter(c=>c.col!=='conc');
   let totR=0,totC=0;
-  SP.forEach(col=>{totC+=parseInt(caps[col.id])||0;conc.forEach(card=>{totR+=(card.min_setor?parseInt(card.min_setor[col.id])||0:0);});});
+  SP.forEach(col=>{
+    totC+=parseInt(caps[col.id])||0;
+    // Total realizado = soma de horas do setor para todas OS fora da fila de espera
+    cards.forEach(card=>{
+      if(card.col!=='fila')
+        totR+=(card.min_setor?parseInt(card.min_setor[col.id])||0:0);
+    });
+  });
   const totO=totC>0?Math.round(totR/totC*100):0;
   document.getElementById('summary-bar').innerHTML=`
     <div class="summary-card"><div class="summary-icon" style="background:#EDE9FE">✅</div><div><div class="summary-val">${conc.length}</div><div class="summary-lbl">OS concluídas</div></div></div>
@@ -963,12 +970,18 @@ async function renderDesempenho(){
   if(!cards.length){grid.innerHTML='<div class="no-data" style="grid-column:1/-1"><div class="no-data-icon">📈</div>Nenhuma OS registrada nesta semana</div>';return;}
   grid.innerHTML=SP.map(col=>{
     const capMin=parseInt(caps[col.id])||0;let passM=0;
-    cards.forEach(card=>{if(FLUXO.indexOf(card.col)>FLUXO.indexOf(col.id))passM+=(card.min_setor?parseInt(card.min_setor[col.id])||0:0);});
+    cards.forEach(card=>{
+      // Conta horas do setor para TODAS as OS exceto as que estão na fila de espera
+      if(card.col!=='fila')
+        passM+=(card.min_setor?parseInt(card.min_setor[col.id])||0:0);
+    });
     const pct=capMin>0?Math.min(999,Math.round(passM/capMin*100)):0;
     const pc=!capMin?'gray':pct>=80?'green':pct>=50?'yellow':'red';
     const bc=!capMin?'#E2E8F0':pct>=80?'#22c55e':pct>=50?'#f59e0b':'#ef4444';
+    // OS processadas = já passaram pelo setor (foram além)
     const osp=cards.filter(c=>FLUXO.indexOf(c.col)>FLUXO.indexOf(col.id)).length;
-    const osPend=cards.filter(c=>FLUXO.indexOf(c.col)<=FLUXO.indexOf(col.id)&&c.col!=='conc').length;
+    // OS pendentes = ainda não chegaram ao setor
+    const osPend=cards.filter(c=>FLUXO.indexOf(c.col)<FLUXO.indexOf(col.id)&&c.col!=='conc').length;
     return `<div class="desemp-card">
       <div class="desemp-header"><div class="desemp-dot" style="background:${col.color}"></div><span class="desemp-setor" style="color:${col.color}">${col.label}</span></div>
       <div class="desemp-label">Taxa de ocupação</div>
