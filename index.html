@@ -476,11 +476,17 @@ function getSemanaLimite(){
 
 async function atualizarBotoesNav(){
   const hoje=weekKeyFromDate(new Date());
-  // Pode avançar se:
-  // - É a semana atual do calendário
-  // - OU a semana anterior foi gerada
-  let podeAvancar = currentWeek===hoje;
-  if(!podeAvancar){
+  const destino=nextWeekKey(currentWeek);
+  let podeAvancar = false;
+
+  if(destino<=hoje){
+    // Destino ainda é passado → livre
+    podeAvancar = true;
+  } else if(currentWeek===hoje){
+    // Da semana atual para a próxima → sempre pode (espelho natural)
+    podeAvancar = true;
+  } else {
+    // Futuro: só avança se a semana anterior foi gerada
     const prev=prevWeekKey(currentWeek);
     const prevSnap=await getDoc(docRef(prev));
     if(prevSnap.exists()&&prevSnap.data().gerada===true) podeAvancar=true;
@@ -725,6 +731,9 @@ async function loadWeek(week){
     renderGerarBar();
     render();
     atualizarBotoesNav();
+    // Espelha para próxima semana APENAS se esta semana ainda NÃO foi gerada
+    // Garante que semana não gerada sempre espelha para a imediatamente seguinte
+    if(!weekData.gerada && !isSaving) syncToNext();
   },()=>setSyncStatus('err'));
 }
 
@@ -732,16 +741,20 @@ async function loadWeek(week){
 window.changeWeek=async function(dir){
   if(dir>0){
     const hoje=weekKeyFromDate(new Date());
-    // Pode avançar se:
-    // - É a semana atual do calendário (espelho natural)
-    // - OU a semana anterior (prev da atual) foi gerada
-    let podeAvancar = currentWeek===hoje;
-    if(!podeAvancar){
-      const prev=prevWeekKey(currentWeek);
-      const prevSnap=await getDoc(docRef(prev));
-      if(prevSnap.exists()&&prevSnap.data().gerada===true) podeAvancar=true;
+    const destino=nextWeekKey(currentWeek);
+    // Sem bloqueio para semanas do passado (antes da semana atual do calendário)
+    if(destino<=hoje){
+      // Navegação livre no passado
+    } else {
+      // Navegação no futuro: só avança se a semana anterior foi gerada
+      let podeAvancar = currentWeek===hoje; // da atual para a próxima sempre pode
+      if(!podeAvancar){
+        const prev=prevWeekKey(currentWeek);
+        const prevSnap=await getDoc(docRef(prev));
+        if(prevSnap.exists()&&prevSnap.data().gerada===true) podeAvancar=true;
+      }
+      if(!podeAvancar) return;
     }
-    if(!podeAvancar) return;
   }
   const [yr,wn]=currentWeek.split('-W');
   const d=new Date(Number(yr),0,1+(Number(wn)-1)*7);
