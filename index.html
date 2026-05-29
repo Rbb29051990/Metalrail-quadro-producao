@@ -475,47 +475,52 @@ function getSemanaLimite(){
 }
 
 async function atualizarBotoesNav(){
+  // Lógica infinita de navegação:
+  // Pode avançar se: destino <= hoje (passado livre)
+  //              OU: semana atual é a do calendário (avança para o espelho natural)
+  //              OU: semana atual já foi gerada (avança para o espelho da gerada)
+  //              OU: semana atual existe no banco (pode ver o espelho dela)
+
+  function aplicarBtn(id, pode){
+    const btn=document.getElementById(id);
+    if(!btn)return;
+    btn.disabled=!pode;
+    btn.style.opacity=pode?'1':'0.35';
+    btn.style.cursor=pode?'pointer':'not-allowed';
+    btn.style.pointerEvents=pode?'auto':'none';
+  }
+
   const hoje=weekKeyFromDate(new Date());
 
-  // ── Botão NEXT do Quadro ──────────────────────────
-  const destinoQuadro=nextWeekKey(currentWeek);
-  let podeAvancarQuadro = false;
-  if(destinoQuadro<=hoje){
-    podeAvancarQuadro = true;
-  } else if(currentWeek===hoje){
-    podeAvancarQuadro = true;
-  } else {
-    const prev=prevWeekKey(currentWeek);
-    const prevSnap=await getDoc(docRef(prev));
-    if(prevSnap.exists()&&prevSnap.data().gerada===true) podeAvancarQuadro=true;
+  // ── Quadro ──
+  const destinoQ=nextWeekKey(currentWeek);
+  let podeQ=false;
+  if(destinoQ<=hoje){ podeQ=true; }
+  else if(currentWeek===hoje){ podeQ=true; }
+  else if(weekData.gerada===true){ podeQ=true; }
+  else {
+    // Verifica se a semana atual existe no banco (espelho visível)
+    const snap=await getDoc(docRef(currentWeek));
+    if(snap.exists()) podeQ=true;
   }
-  const btnNext = document.getElementById('btn-week-next');
-  if(btnNext){
-    btnNext.disabled = !podeAvancarQuadro;
-    btnNext.style.opacity = podeAvancarQuadro ? '1' : '0.35';
-    btnNext.style.cursor = podeAvancarQuadro ? 'pointer' : 'not-allowed';
-    btnNext.style.pointerEvents = podeAvancarQuadro ? 'auto' : 'none';
-  }
+  aplicarBtn('btn-week-next',podeQ);
 
-  // ── Botão NEXT do Desempenho (usa desempWeek, independente do Quadro) ──
-  const destinoDesemp=nextWeekKey(desempWeek);
-  let podeAvancarDesemp = false;
-  if(destinoDesemp<=hoje){
-    podeAvancarDesemp = true;
-  } else if(desempWeek===hoje){
-    podeAvancarDesemp = true;
-  } else {
-    const prev=prevWeekKey(desempWeek);
-    const prevSnap=await getDoc(docRef(prev));
-    if(prevSnap.exists()&&prevSnap.data().gerada===true) podeAvancarDesemp=true;
+  // ── Desempenho (independente do Quadro) ──
+  const destinoD=nextWeekKey(desempWeek);
+  let podeD=false;
+  if(destinoD<=hoje){ podeD=true; }
+  else if(desempWeek===hoje){ podeD=true; }
+  else {
+    const snapD=await getDoc(docRef(desempWeek));
+    if(snapD.exists()&&snapD.data().gerada===true) podeD=true;
+    else if(snapD.exists()){
+      // Semana de desempenho existe como espelho — pode ver a próxima se ela existir
+      const nextD=nextWeekKey(desempWeek);
+      const snapND=await getDoc(docRef(nextD));
+      if(snapND.exists()) podeD=true;
+    }
   }
-  const btnNextD = document.getElementById('btn-desemp-next');
-  if(btnNextD){
-    btnNextD.disabled = !podeAvancarDesemp;
-    btnNextD.style.opacity = podeAvancarDesemp ? '1' : '0.35';
-    btnNextD.style.cursor = podeAvancarDesemp ? 'pointer' : 'not-allowed';
-    btnNextD.style.pointerEvents = podeAvancarDesemp ? 'auto' : 'none';
-  }
+  aplicarBtn('btn-desemp-next',podeD);
 }
 
 // ─── SYNC STATUS ───────────────────────────────────
@@ -547,70 +552,46 @@ async function saveWeek(propagate=true){
 // Se a próxima já foi gerada (independente), apenas adiciona OS novas que ainda não existem lá
 // e remove OS que foram concluídas aqui. NÃO move cartões já existentes na próxima.
 async function syncToNext(){
+  // Regra: só atualiza a semana seguinte SE ela já existe no Firestore
+  // NUNCA cria semanas novas aqui — criação é responsabilidade do syncFromPrev (ao navegar)
   const next=nextWeekKey(currentWeek);
   const nextSnap=await getDoc(docRef(next));
-  const nextData=nextSnap.exists()?nextSnap.data():{cards:[],caps:{},nextId:1,gerada:false};
-  const nextGerada=nextData.gerada===true;
+  if(!nextSnap.exists()) return;
 
-  // Pendentes da semana atual (não concluídos)
+  const nextData=nextSnap.data();
   const pendentes=weekData.cards.filter(c=>c.col!=='conc');
-  // Concluídos da semana atual
   const concluidosOS=new Set(weekData.cards.filter(c=>c.col==='conc').map(c=>c.os));
 
-  let modified=false;
-
-  if(!nextGerada){
-    // Só atualiza a semana seguinte se ela JA EXISTE no Firestore
-    // NUNCA cria semana nova aqui — a criação é feita pelo syncFromPrev ao navegar
-    if(!nextSnap.exists()) return;
-
-    // Preserva posicoes (col) ja movidas na semana seguinte
+  if(!nextData.gerada){
+    // Semana seguinte é espelho: atualiza preservando posições (col) já movidas
     const osNextMap={};
     nextData.cards.forEach(c=>{osNextMap[c.os]=c;});
-
-    const caps=nextData.caps||{};
-    const snapshot={
-      cards: pendentes.map((c,i)=>{
-        const jaExiste=osNextMap[c.os];
-        return {
-          ...JSON.parse(JSON.stringify(c)),
-          id:i+1,
-          col: jaExiste ? jaExiste.col : c.col,
-          carriedFrom:currentWeek
-        };
+    await setDoc(docRef(next),{
+      cards:pendentes.map((c,i)=>{
+        const ex=osNextMap[c.os];
+        return {...JSON.parse(JSON.stringify(c)),id:i+1,col:ex?ex.col:c.col,carriedFrom:currentWeek};
       }),
-      caps,
+      caps:nextData.caps||{},
       nextId:pendentes.length+1,
       gerada:false,
       parentWeek:currentWeek
-    };
-    await setDoc(docRef(next),snapshot);
+    });
     return;
   }
 
-  // Semana seguinte JÁ FOI GERADA (independente):
-  // 1. Remove OS que foram concluídas na semana atual
+  // Semana seguinte independente: só adiciona novas e remove concluídas
+  let modified=false;
   const antes=nextData.cards.length;
-  nextData.cards=nextData.cards.filter(c=>{
-    if(c.carriedFrom===currentWeek && concluidosOS.has(c.os)) return false;
-    return true;
-  });
+  nextData.cards=nextData.cards.filter(c=>!(c.carriedFrom===currentWeek&&concluidosOS.has(c.os)));
   if(nextData.cards.length<antes) modified=true;
-
-  // 2. Adiciona OS novas que existem na atual mas ainda não estão na próxima
   const osNaProxima=new Set(nextData.cards.map(c=>c.os));
   pendentes.forEach(c=>{
     if(!osNaProxima.has(c.os)){
-      const copia=JSON.parse(JSON.stringify(c));
-      copia.id=nextData.nextId++;
-      copia.carriedFrom=currentWeek;
-      // Sem ordem manual — vai para o fim, ordenado por data
-      delete copia.ordem;
-      nextData.cards.push(copia);
-      modified=true;
+      const cp=JSON.parse(JSON.stringify(c));
+      cp.id=nextData.nextId++;cp.carriedFrom=currentWeek;delete cp.ordem;
+      nextData.cards.push(cp);modified=true;
     }
   });
-
   if(modified) await setDoc(docRef(next),nextData);
 }
 
@@ -620,53 +601,50 @@ window.gerarProximaSemana=async function(){
   const next=nextWeekKey(currentWeek);
   const nextSnap=await getDoc(docRef(next));
   const nextData=nextSnap.exists()?nextSnap.data():{cards:[],caps:{},nextId:1,gerada:false};
-  const caps=nextData.caps||{};
 
-  // OS pendentes da semana atual (não concluídos)
+  // Pendentes da semana atual
   const pendentes=weekData.cards.filter(c=>c.col!=='conc');
+  // Cards adicionados diretamente na próxima (não espelhados da atual)
+  const diretos=nextData.cards.filter(c=>c.carriedFrom!==currentWeek);
+  const osDirectas=new Set(diretos.map(c=>c.os));
+  // Pendentes da atual que ainda não estão diretos na próxima
+  const pendentesNovos=pendentes.filter(c=>!osDirectas.has(c.os));
 
-  // OS já criadas diretamente na semana seguinte (não espelhadas)
-  // Identifica pelas que NÃO têm carriedFrom apontando para a semana atual
-  const osJaNaProxima=nextData.cards.filter(c=>c.carriedFrom!==currentWeek);
-
-  // OS espelhadas que já estão na próxima (para evitar duplicar)
-  const osEspelhadas=new Set(nextData.cards
-    .filter(c=>c.carriedFrom===currentWeek)
-    .map(c=>c.os));
-
-  // Mescla: pendentes da atual + OS já criadas diretamente na próxima
-  // Sem duplicar OS que já existem nos dois lados
-  const osPendentesFiltradas=pendentes.filter(c=>
-    // Só adiciona se ainda não está na próxima de forma direta
-    !osJaNaProxima.find(x=>x.os===c.os)
-  );
-
-  // OS diretas da próxima semana + pendentes da atual
-  let nextId=1;
+  let nid=1;
   const cardsMesclados=[
-    // Primeiro as OS já criadas diretamente na 23 (prioridade)
-    ...osJaNaProxima.map(card=>({...JSON.parse(JSON.stringify(card)),id:nextId++})),
-    // Depois os pendentes da 22 que não estão já na 23
-    ...osPendentesFiltradas.map(card=>({
-      ...JSON.parse(JSON.stringify(card)),
-      id:nextId++,
-      carriedFrom:currentWeek
-    }))
+    ...diretos.map(c=>({...JSON.parse(JSON.stringify(c)),id:nid++})),
+    ...pendentesNovos.map(c=>({...JSON.parse(JSON.stringify(c)),id:nid++,carriedFrom:currentWeek}))
   ];
 
-  const snapshot={
+  // 1. Salva a semana seguinte como INDEPENDENTE (gerada:true)
+  await setDoc(docRef(next),{
     cards:cardsMesclados,
-    caps,
-    nextId,
-    gerada:true,        // semana gerada ja nasce independente
+    caps:nextData.caps||{},
+    nextId:nid,
+    gerada:true,
     parentWeek:currentWeek
-  };
-  await setDoc(docRef(next),snapshot);
+  });
+
+  // 2. Cria imediatamente o espelho da semana seguinte+1 (lógica infinita)
+  const next2=nextWeekKey(next);
+  const next2Snap=await getDoc(docRef(next2));
+  if(!next2Snap.exists()){
+    const pendentesNext=cardsMesclados.filter(c=>c.col!=='conc');
+    await setDoc(docRef(next2),{
+      cards:pendentesNext.map((c,i)=>({...JSON.parse(JSON.stringify(c)),id:i+1,carriedFrom:next})),
+      caps:{},
+      nextId:pendentesNext.length+1,
+      gerada:false,
+      parentWeek:next
+    });
+  }
+
+  // 3. Marca a semana atual como gerada e salva
   weekData.gerada=true;
-  // Força save direto sem depender da guarda isSaving
   isSaving=false;
   await saveWeek(false);
   renderGerarBar();
+  atualizarBotoesNav();
 };
 
 // ─── LOAD WEEK ─────────────────────────────────────
@@ -684,7 +662,7 @@ async function syncFromPrev(week){
     const prevSnap2=await getDoc(docRef(prev));
     if(!prevSnap2.exists()) return;
     const prevData2=prevSnap2.data();
-    if(prevData2.gerada===true) return; // mae ja independente, nao cria espelho automatico
+    // Mesmo que a mae seja independente (gerada:true), cria espelho da proxima ao navegar
     const pendentes2=prevData2.cards.filter(c=>c.col!=='conc');
     await setDoc(docRef(week),{
       cards:pendentes2.map((c,i)=>({...JSON.parse(JSON.stringify(c)),id:i+1,carriedFrom:prev})),
@@ -840,38 +818,28 @@ window.changeWeek=async function(dir){
 
 // ─── BARRA GERAR SEMANA ────────────────────────────
 async function renderGerarBar(){
+  // Lógica infinita:
+  // Mostra botão "Gerar semana X" sempre que a próxima ainda não foi gerada
+  // e a semana atual é a semana do calendário OU já foi gerada (independente)
   const wrap=document.getElementById('gerar-semana-bar-wrap');
   if(!wrap)return;
   const next=nextWeekKey(currentWeek);
   const nextLbl=weekLabel(next).replace('Semana ','Sem. ');
-  const hoje=weekKeyFromDate(new Date());
 
-  if(weekData.gerada){
-    // Semana atual já gerada — não mostra botão
-    wrap.innerHTML='';
-  } else {
-    // Verifica se pode mostrar o botão:
-    // Semana atual do calendário → sempre mostra
-    // Semana futura → só mostra se a semana ANTERIOR foi gerada
-    let podeGerar = false;
-    if(currentWeek===hoje){
-      podeGerar = true;
-    } else {
-      // Busca se a semana anterior foi gerada
-      const prev=prevWeekKey(currentWeek);
-      const prevSnap=await getDoc(docRef(prev));
-      if(prevSnap.exists()&&prevSnap.data().gerada===true){
-        podeGerar = true;
-      }
-    }
-    if(podeGerar){
-      wrap.innerHTML=`<button class="btn-gerar" onclick="gerarProximaSemana()" style="white-space:nowrap">📅 Gerar ${nextLbl}</button>`;
-    } else {
-      wrap.innerHTML='';
-    }
-  }
-  // Atualiza estado dos botões de navegação
-  setTimeout(atualizarBotoesNav, 50);
+  const nextSnap=await getDoc(docRef(next));
+  const proximaJaGerada=nextSnap.exists()&&nextSnap.data().gerada===true;
+
+  // Próxima já é independente → sem botão (ela já tem o próprio botão para a seguinte)
+  if(proximaJaGerada){wrap.innerHTML='';setTimeout(atualizarBotoesNav,50);return;}
+
+  // Mostra botão se esta semana é a atual do calendário OU já foi gerada
+  const hoje=weekKeyFromDate(new Date());
+  const podeGerar = currentWeek===hoje || weekData.gerada===true;
+
+  wrap.innerHTML=podeGerar
+    ?`<button class="btn-gerar" onclick="gerarProximaSemana()" style="white-space:nowrap">📅 Gerar ${nextLbl}</button>`
+    :'';
+  setTimeout(atualizarBotoesNav,50);
 }
 
 // ─── CAPACIDADE ────────────────────────────────────
