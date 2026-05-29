@@ -560,15 +560,25 @@ async function syncToNext(){
   let modified=false;
 
   if(!nextGerada){
-    // Só espelha a semana IMEDIATAMENTE seguinte
-    // Não propaga para semanas além desta
+    // Só atualiza a semana seguinte se ela JA EXISTE no Firestore
+    // NUNCA cria semana nova aqui — a criação é feita pelo syncFromPrev ao navegar
+    if(!nextSnap.exists()) return;
+
+    // Preserva posicoes (col) ja movidas na semana seguinte
+    const osNextMap={};
+    nextData.cards.forEach(c=>{osNextMap[c.os]=c;});
+
     const caps=nextData.caps||{};
     const snapshot={
-      cards: pendentes.map((c,i)=>({
-        ...JSON.parse(JSON.stringify(c)),
-        id:i+1,
-        carriedFrom:currentWeek
-      })),
+      cards: pendentes.map((c,i)=>{
+        const jaExiste=osNextMap[c.os];
+        return {
+          ...JSON.parse(JSON.stringify(c)),
+          id:i+1,
+          col: jaExiste ? jaExiste.col : c.col,
+          carriedFrom:currentWeek
+        };
+      }),
       caps,
       nextId:pendentes.length+1,
       gerada:false,
@@ -669,8 +679,24 @@ async function syncFromPrev(week){
   const currSnap=await getDoc(docRef(week));
   const currData=currSnap.exists()?currSnap.data():null;
 
-  // Só sincroniza se existe e a mãe declarada é a semana anterior
-  if(!currData) return;
+  // Se a semana nao existe ainda, cria como espelho da anterior (primeira navegacao)
+  if(!currData){
+    const prevSnap2=await getDoc(docRef(prev));
+    if(!prevSnap2.exists()) return;
+    const prevData2=prevSnap2.data();
+    if(prevData2.gerada===true) return; // mae ja independente, nao cria espelho automatico
+    const pendentes2=prevData2.cards.filter(c=>c.col!=='conc');
+    await setDoc(docRef(week),{
+      cards:pendentes2.map((c,i)=>({...JSON.parse(JSON.stringify(c)),id:i+1,carriedFrom:prev})),
+      caps:{},
+      nextId:pendentes2.length+1,
+      gerada:false,
+      parentWeek:prev
+    });
+    return;
+  }
+
+  // Se existe mas parentWeek nao aponta para a semana anterior, nao mexe
   if(currData.parentWeek!==prev) return;
 
   const prevSnap=await getDoc(docRef(prev));
@@ -775,8 +801,9 @@ async function loadWeek(week){
     if(!weekData.gerada && !isSaving){
       const next=nextWeekKey(week);
       getDoc(docRef(next)).then(nextSnap=>{
-        // Só espelha se a próxima ainda não existe OU se o parentWeek dela aponta para esta semana
-        if(!nextSnap.exists()||nextSnap.data().parentWeek===week){
+        // Só atualiza se a proxima JA EXISTE e tem parentWeek apontando para esta semana
+        // NUNCA cria semana nova aqui — evita propagacao em cascata (22→23→24)
+        if(nextSnap.exists() && nextSnap.data().parentWeek===week){
           syncToNext();
         }
       });
