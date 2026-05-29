@@ -475,13 +475,12 @@ function getSemanaLimite(){
 }
 
 async function atualizarBotoesNav(){
-  // Lógica infinita de navegação:
-  // Pode avançar se: destino <= hoje (passado livre)
-  //              OU: semana atual é a do calendário (avança para o espelho natural)
-  //              OU: semana atual já foi gerada (avança para o espelho da gerada)
-  //              OU: semana atual existe no banco (pode ver o espelho dela)
+  // Regra de navegação:
+  // Passado (<=hoje): livre
+  // Futuro: só pode avançar se a semana ATUAL for gerada (independente)
+  //         Semana espelho (gerada:false) = fim da navegação, não pode ir além
 
-  function aplicarBtn(id, pode){
+  function aplicarBtn(id,pode){
     const btn=document.getElementById(id);
     if(!btn)return;
     btn.disabled=!pode;
@@ -495,30 +494,27 @@ async function atualizarBotoesNav(){
   // ── Quadro ──
   const destinoQ=nextWeekKey(currentWeek);
   let podeQ=false;
-  if(destinoQ<=hoje){ podeQ=true; }
-  else if(currentWeek===hoje){ podeQ=true; }
-  else if(weekData.gerada===true){ podeQ=true; }
-  else {
-    // Verifica se a semana atual existe no banco (espelho visível)
-    const snap=await getDoc(docRef(currentWeek));
-    if(snap.exists()) podeQ=true;
+  if(destinoQ<=hoje){
+    podeQ=true; // passado: livre
+  } else if(currentWeek===hoje){
+    podeQ=true; // da semana atual sempre pode ver o espelho seguinte
+  } else if(weekData.gerada===true){
+    podeQ=true; // semana independente: pode ver o espelho da próxima
   }
+  // Se gerada===false (espelho): NÃO pode avançar — é o limite
   aplicarBtn('btn-week-next',podeQ);
 
   // ── Desempenho (independente do Quadro) ──
   const destinoD=nextWeekKey(desempWeek);
   let podeD=false;
-  if(destinoD<=hoje){ podeD=true; }
-  else if(desempWeek===hoje){ podeD=true; }
-  else {
+  if(destinoD<=hoje){
+    podeD=true;
+  } else if(desempWeek===hoje){
+    podeD=true;
+  } else {
     const snapD=await getDoc(docRef(desempWeek));
     if(snapD.exists()&&snapD.data().gerada===true) podeD=true;
-    else if(snapD.exists()){
-      // Semana de desempenho existe como espelho — pode ver a próxima se ela existir
-      const nextD=nextWeekKey(desempWeek);
-      const snapND=await getDoc(docRef(nextD));
-      if(snapND.exists()) podeD=true;
-    }
+    // espelho (gerada:false): NÃO pode avançar
   }
   aplicarBtn('btn-desemp-next',podeD);
 }
@@ -794,18 +790,15 @@ window.changeWeek=async function(dir){
   if(dir>0){
     const hoje=weekKeyFromDate(new Date());
     const destino=nextWeekKey(currentWeek);
-    // Sem bloqueio para semanas do passado (antes da semana atual do calendário)
     if(destino<=hoje){
-      // Navegação livre no passado
+      // passado: livre
+    } else if(currentWeek===hoje){
+      // da semana atual sempre pode ver o espelho
+    } else if(weekData.gerada===true){
+      // semana independente: pode ver o espelho da proxima
     } else {
-      // Navegação no futuro: só avança se a semana anterior foi gerada
-      let podeAvancar = currentWeek===hoje; // da atual para a próxima sempre pode
-      if(!podeAvancar){
-        const prev=prevWeekKey(currentWeek);
-        const prevSnap=await getDoc(docRef(prev));
-        if(prevSnap.exists()&&prevSnap.data().gerada===true) podeAvancar=true;
-      }
-      if(!podeAvancar) return;
+      // espelho (gerada:false): bloqueado, nao pode ir alem
+      return;
     }
   }
   const [yr,wn]=currentWeek.split('-W');
