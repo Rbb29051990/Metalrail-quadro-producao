@@ -327,15 +327,18 @@
     .card-btns{opacity:1}
   }
 
-  /* ─── DRAG POR TOQUE ─── */
-  /* Telas de toque: arrasto horizontal do card é tratado por JS; a rolagem
-     vertical (pan-y) da coluna continua normal. */
-  @media (pointer:coarse){
-    .card{touch-action:pan-y}
-  }
-  .touch-clone{position:fixed;z-index:300;margin:0;pointer-events:none;opacity:.96;
-    transform:scale(1.04);box-shadow:0 14px 34px rgba(0,0,0,.28);border-radius:8px;
-    border:1px solid rgba(83,74,183,.4);background:#fff}
-  .col.over{outline:2px dashed rgba(83,74,183,.55);outline-offset:-2px}
-  body.touch-dragging{touch-action:none}
-  body.touch-dragging .card{cursor:grabbing}
+  .ib.mover:hover{color:#534AB7;background:#EDE9FE}
+
+  /* ─── DIÁLOGO MOVER OS ─── */
+  .move-modal{width:min(380px,94vw)}
+  .move-step{font-size:11px;font-weight:800;color:#534AB7;margin:12px 0 7px;text-transform:uppercase;letter-spacing:.06em}
+  .move-sectors{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .move-opt{display:flex;align-items:center;justify-content:center;gap:5px;padding:10px 6px;border:2px solid #E2E8F0;border-radius:9px;background:#fff;font-size:12px;font-weight:700;color:#1a1a2e;cursor:pointer;font-family:'Inter',Arial,sans-serif;text-align:center;line-height:1.2}
+  .move-opt small{font-weight:600;color:#94a3b8;font-size:9px}
+  .move-opt:hover:not(:disabled){border-color:#534AB7}
+  .move-opt.sel{border-color:#534AB7;background:#EDE9FE;color:#534AB7}
+  .move-opt:disabled{opacity:.45;cursor:not-allowed}
+  .move-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+  .move-positions{display:flex;flex-direction:column;gap:6px;max-height:240px;overflow-y:auto}
+  .move-pos{padding:11px 12px;border:1.5px solid #E2E8F0;border-radius:8px;background:#fff;font-size:12.5px;font-weight:600;color:#475569;cursor:pointer;font-family:'Inter',Arial,sans-serif;text-align:left}
+  .move-pos:hover{border-color:#534AB7;background:#F8FAFC}

@@ -94,142 +94,6 @@ export function setupCardDrop(el, cardId, colId) {
   });
 }
 
-// ─── DRAG POR TOQUE (tablet / celular) ─────────────
-// O drag nativo HTML5 não funciona em telas de toque. Aqui usamos Pointer
-// Events: arrastar o card na horizontal (o touch-action:pan-y mantém a rolagem
-// vertical da coluna intacta) "pega" o card, que passa a seguir o dedo. Soltar
-// sobre outra coluna move (respeitando a trava de horas). Mouse segue no drag nativo.
-let _touch = null;
-let _touchOver = null;
-
-function prevent(e) { e.preventDefault(); }
-
-function posClone(x, y) {
-  if (!_touch) return;
-  _touch.clone.style.left = (x - _touch.offX) + 'px';
-  _touch.clone.style.top  = (y - _touch.offY) + 'px';
-}
-
-function autoScrollBoard(x) {
-  const board = document.getElementById('board');
-  if (!board || board.scrollWidth <= board.clientWidth) return;
-  const r = board.getBoundingClientRect();
-  if (x < r.left + 48) board.scrollLeft -= 14;
-  else if (x > r.right - 48) board.scrollLeft += 14;
-}
-
-function realcarAlvo(x, y) {
-  const t = document.elementFromPoint(x, y);
-  const host = t && t.closest('[data-col]');
-  if (_touchOver && _touchOver !== host) _touchOver.classList.remove('over');
-  if (host) host.classList.add('over');
-  _touchOver = host;
-}
-function limparRealce() { if (_touchOver) _touchOver.classList.remove('over'); _touchOver = null; }
-
-function setupTouchDrag(el, card) {
-  el.addEventListener('pointerdown', e => {
-    if (e.pointerType === 'mouse') return;                    // mouse usa o drag nativo
-    if (document.body.classList.contains('readonly')) return; // visitante não move
-    if (e.target.closest('button')) return;                   // toque nos botões não arrasta
-
-    const startX = e.clientX, startY = e.clientY, pid = e.pointerId;
-    let started = false, encerrado = false;
-
-    const onMove = ev => {
-      if (ev.pointerId !== pid) return;
-      if (!started) {
-        const dx = ev.clientX - startX, dy = ev.clientY - startY;
-        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
-        if (Math.abs(dy) > Math.abs(dx)) { encerra(); return; } // vertical → deixa a coluna rolar
-        started = true;
-        try { el.setPointerCapture(pid); } catch (_) {}
-        comecarDrag(el, card, pid, startX, startY);
-      }
-      ev.preventDefault();
-      posClone(ev.clientX, ev.clientY);
-      autoScrollBoard(ev.clientX);
-      realcarAlvo(ev.clientX, ev.clientY);
-    };
-    const onUp = ev => {
-      if (ev.pointerId !== pid) return;
-      if (started) {
-        _touch.clone.style.display = 'none';                  // não interferir no elementFromPoint
-        const target = document.elementFromPoint(ev.clientX, ev.clientY);
-        desmontarDrag();
-        finalizarDropToque(card, target, ev.clientY);
-      }
-      encerra();
-    };
-    const onCancel = ev => {
-      if (ev.pointerId !== pid) return;
-      if (started) desmontarDrag();
-      encerra();
-    };
-    function encerra() {
-      if (encerrado) return; encerrado = true;
-      document.removeEventListener('pointermove', onMove);
-      document.removeEventListener('pointerup', onUp);
-      document.removeEventListener('pointercancel', onCancel);
-    }
-    document.addEventListener('pointermove', onMove, { passive: false });
-    document.addEventListener('pointerup', onUp);
-    document.addEventListener('pointercancel', onCancel);
-  });
-}
-
-function comecarDrag(el, card, pointerId, startX, startY) {
-  const rect = el.getBoundingClientRect();
-  const clone = el.cloneNode(true);
-  clone.classList.add('touch-clone');
-  clone.style.width = rect.width + 'px';
-  document.body.appendChild(clone);
-  el.classList.add('dragging');
-  document.body.classList.add('touch-dragging');
-  el.addEventListener('contextmenu', prevent);
-  _touch = { card, el, clone, pointerId, offX: startX - rect.left, offY: startY - rect.top };
-  posClone(startX, startY);
-  realcarAlvo(startX, startY);
-  if (navigator.vibrate) navigator.vibrate(15);
-}
-
-function desmontarDrag() {
-  if (!_touch) return;
-  _touch.clone.remove();
-  _touch.el.classList.remove('dragging');
-  _touch.el.removeEventListener('contextmenu', prevent);
-  try { _touch.el.releasePointerCapture(_touch.pointerId); } catch (_) {}
-  document.body.classList.remove('touch-dragging');
-  limparRealce();
-  _touch = null;
-}
-
-function finalizarDropToque(card, target, y) {
-  if (!target) return;
-  const host = target.closest('[data-col]');
-  if (!host) return;
-  const destCol = host.dataset.col;
-
-  if (destCol === card.col) {
-    // reordenar dentro da mesma coluna
-    const overEl = target.closest('.card');
-    if (overEl && Number(overEl.dataset.id) !== card.id) {
-      const r = overEl.getBoundingClientRect();
-      reorderInColumn(card.col, card.id, Number(overEl.dataset.id), y < r.top + r.height / 2);
-      saveWeek(); render();
-    }
-    return;
-  }
-
-  // mover entre colunas (mesma regra do drag nativo)
-  if (!podeMoverPara(card, destCol)) return;            // toast avisa e mantém na origem
-  card.col = destCol;
-  const maxOrdem = state.weekData.cards.filter(c => c.col === destCol && c.id !== card.id && c.ordem !== undefined);
-  if (maxOrdem.length > 0) card.ordem = Math.max(...maxOrdem.map(c => c.ordem)) + 1;
-  else delete card.ordem;
-  saveWeek(); render();
-}
-
 // ─── RENDER ────────────────────────────────────────
 export function render() {
   document.getElementById('week-lbl').textContent = weekLabel(state.currentWeek);
@@ -314,6 +178,7 @@ export function render() {
           <div class="card-footer">
             <span class="card-h">⏱ ${showH ? minToTime(mAtual) : (card.min_total ? minToTime(card.min_total) : '—')}</span>
             <div class="card-btns">
+              <button class="ib mover" onclick="openMoveModal(${card.id})" title="Mover OS">↔</button>
               <button class="ib edit" onclick="editCard(${card.id})" title="Editar OS">✏</button>
               <button class="ib del" onclick="delCard(${card.id})" title="Remover OS">🗑</button>
             </div>
@@ -328,7 +193,12 @@ export function render() {
           });
         });
         setupCardDrop(el, card.id, col.id);
-        setupTouchDrag(el, card);
+        // Clicar/tocar no card abre o diálogo de mover (principal em telas de toque).
+        el.addEventListener('click', e => {
+          if (e.target.closest('.card-btns')) return;          // botões têm ação própria
+          if (document.body.classList.contains('readonly')) return;
+          window.openMoveModal(card.id);
+        });
         list.appendChild(el);
       });
       const dz = document.createElement('div');
