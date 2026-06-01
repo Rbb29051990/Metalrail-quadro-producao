@@ -3,6 +3,7 @@ import { weekLabel, nextWeekKey, weekKeyFromDate, COLS, FLUXO, TRACK_COLS, TRACK
 import { getCapMin, getUsedMin, getCardMin, saldoClass, saldoText, capPct, capColor } from './capacity.js';
 import { docRef, getDoc } from './firebase.js';
 import { saveWeek } from './sync.js';
+import { showToast } from './toast.js';
 
 // ─── ORDENAÇÃO ─────────────────────────────────────
 export function sortCards(cards) {
@@ -33,7 +34,10 @@ export function reorderInColumn(colId, draggedId, targetId, insertBefore) {
 function podeMoverPara(card, colId) {
   if (cardUsaSetor(card, colId)) return true;
   const lbl = (COLS.find(c => c.id === colId) || {}).label || colId;
-  alert(`A OS ${card.os} não tem horas estimadas para o setor ${lbl}.\n\nO cartão voltará para o setor de origem. Edite a OS e informe as horas desse setor antes de movê-lo para lá.`);
+  showToast({
+    title: 'Setor sem horas estimadas',
+    message: `A OS <b>${card.os}</b> não tem horas para o setor <b>${lbl}</b>. O cartão voltou à origem — edite a OS e informe as horas desse setor.`
+  });
   return false;
 }
 
