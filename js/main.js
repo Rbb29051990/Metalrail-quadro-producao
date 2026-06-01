@@ -4,6 +4,7 @@ import { initSync, loadWeek, saveWeek, setSyncStatus } from './sync.js';
 import { render, renderGerarBar, renderDesempenho, atualizarBotoesNav } from './render.js';
 import { docRef, getDoc } from './firebase.js';
 import './card.js';
+import './move.js';
 import './auth.js';
 
 // ─── INJEÇÃO DE DEPENDÊNCIA ────────────────────────
