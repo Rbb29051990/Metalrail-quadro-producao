@@ -76,7 +76,7 @@ initSync({ render, renderGerarBar, atualizarBotoesNav });
 
 A week is either an **espelho** (mirror, `gerada: false`) or **independente** (`gerada: true`).
 
-- `syncFromPrev(week)` — runs on every navigation/load; pulls from parent week. For a mirror it rebuilds cards while preserving any `col` already moved in the child. For an independent week it only *adds* newly-pending OS and *removes* OS completed in the parent.
+- `syncFromPrev(week)` — runs on every navigation/load; pulls from parent week. For a mirror it rebuilds cards as a **faithful reflection of the parent**: every non-concluded OS appears in the **same `col` it has in the parent** (the mirror does NOT keep its own card moves — parent column changes always propagate). Cards added directly to the mirror (no `carriedFrom` from the parent) are preserved. Mirror `caps` stay independent (not copied from the parent) until the week is generated. For an independent week it only *adds* newly-pending OS and *removes* OS completed in the parent.
 - `syncToNext()` — pushes pending cards forward, but **only if the next week already exists and has `parentWeek` pointing at the current week.** Must never create a new week.
 - `loadWeek`'s `onSnapshot` callback must **not** call `syncToNext()` unconditionally — doing so while *viewing* a mirror week causes an infinite loop that wipes cards. The guarded check (`nextSnap.data().parentWeek === week`) is what prevents it.
 - `gerarProximaSemana()` snapshots the next week into an independent copy and immediately creates the week after it as a new mirror.
