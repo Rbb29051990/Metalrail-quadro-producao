@@ -1,0 +1,16 @@
+export const state = {
+  currentWeek: null,
+  weekData: { cards: [], caps: {}, nextId: 1, gerada: false },
+  unsubscribeCurrent: null,
+  unsubscribeNext: null,
+  dragId: null,
+  dragSourceCol: null,
+  editingId: null,
+  isUrgente: false,
+  isSaving: false,
+  desempWeek: null,
+  desempInicializado: false,
+  currentUser: null,
+  isEditor: false,
+  isVisitor: false,
+};
