@@ -258,3 +258,71 @@
   @keyframes toast-in{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:translateX(0)}}
   @keyframes toast-out{to{opacity:0;transform:translateX(24px)}}
   @keyframes toast-prog{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+
+  /* ─── RESPONSIVO (notebook / tablet / celular) ─── */
+  /* Barra de rolagem horizontal do quadro em telas menores */
+  .board::-webkit-scrollbar{height:8px}
+  .board::-webkit-scrollbar-track{background:transparent}
+  .board::-webkit-scrollbar-thumb{background:rgba(83,74,183,0.3);border-radius:4px}
+  .board::-webkit-scrollbar-thumb:hover{background:rgba(83,74,183,0.5)}
+
+  /* ≤1100px — telas médias: reduz a grade do Desempenho */
+  @media (max-width:1100px){
+    .desemp-grid{grid-template-columns:repeat(3,1fr)}
+    .summary-bar{grid-template-columns:repeat(2,1fr)}
+  }
+
+  /* ≤1024px — tablet: quadro vira rolagem horizontal com colunas legíveis */
+  @media (max-width:1024px){
+    .main{padding:14px}
+    .topbar-center{display:none}
+    .board{
+      grid-template-columns:none;
+      grid-auto-flow:column;
+      grid-auto-columns:minmax(230px,1fr);
+      overflow-x:auto;overflow-y:hidden;
+      padding-bottom:10px;
+      -webkit-overflow-scrolling:touch;
+      scroll-snap-type:x proximity;
+    }
+    .col{scroll-snap-align:start}
+    .cards-list{max-height:calc(100vh - 260px)}
+  }
+
+  /* ≤760px */
+  @media (max-width:760px){
+    .desemp-grid{grid-template-columns:repeat(2,1fr)}
+  }
+
+  /* ≤640px — celular */
+  @media (max-width:640px){
+    .main{padding:10px}
+    .board{grid-auto-columns:86vw;gap:8px}
+    .cards-list{max-height:calc(100vh - 240px)}
+    .desemp-grid{grid-template-columns:1fr}
+    .summary-bar{grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px}
+    /* Topbar compacta */
+    .topbar{padding:0 10px;gap:6px}
+    #sync-txt{display:none}
+    .topbar-title{font-size:15px}
+    .btn{height:32px;padding:0 12px;font-size:12px}
+    .user-badge{padding:3px 7px}
+    /* Abas + busca */
+    .tab-nav{flex-wrap:wrap;padding:0 10px!important}
+    .tab-btn{padding:0 14px;height:42px}
+    .tab-search{max-width:none!important;width:100%!important;margin:8px 0 0!important}
+    /* Navegação de semana */
+    .board-toolbar{flex-wrap:wrap!important}
+    #week-lbl{min-width:0!important;flex:1}
+    #gerar-semana-bar-wrap{width:100%}
+    .btn-gerar{width:100%;justify-content:center;height:34px}
+    .aba-week-nav .week-lbl{min-width:0}
+    /* Modal e login encaixam na largura da tela */
+    .modal{width:min(340px,92vw)}
+    .login-box{width:min(340px,92vw)}
+  }
+
+  /* Dispositivos sem mouse (toque): mostra os botões do card sempre */
+  @media (hover:none){
+    .card-btns{opacity:1}
+  }

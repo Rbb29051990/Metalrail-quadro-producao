@@ -43,7 +43,7 @@
 <div style="position:relative"><div class="tab-nav" style="display:flex;align-items:center;justify-content:space-between;padding-right:12px">
   <button class="tab-btn active" id="tab-quadro" onclick="switchTab('quadro')">&#9632; Quadro</button>
   <button class="tab-btn" id="tab-desempenho" onclick="switchTab('desempenho')">&#128200; Desempenho</button>
-  <div style="flex:1;max-width:340px;margin-left:auto">
+  <div class="tab-search" style="flex:1;max-width:340px;margin-left:auto">
     <div class="search-bar" style="margin-bottom:0;height:32px;padding:4px 12px">
       <span style="font-size:13px">🔍</span>
       <input class="search-input" id="search-input" placeholder="Buscar OS por número ou cliente..." oninput="searchOS(this.value)" style="font-size:13px" />
@@ -53,7 +53,7 @@
 <div id="search-results" style="display:none;position:absolute;z-index:50;left:0;right:0;padding:0 20px;top:44px;max-height:60vh;overflow-y:auto"></div></div>
 
 <div class="main" id="main-quadro">
-  <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;width:100%">
+  <div class="board-toolbar" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;width:100%">
     <button class="btn-nav prev" id="btn-week-prev" onclick="changeWeek(-1)">&#8249;</button>
     <div class="week-lbl" id="week-lbl" style="font-size:15px;font-weight:700;color:#1a1a2e;min-width:200px;text-align:center">Carregando...</div>
     <button class="btn-nav next" id="btn-week-next" onclick="changeWeek(1)">&#8250;</button>
