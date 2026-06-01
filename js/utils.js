@@ -12,6 +12,15 @@ export const COLS = [
 ];
 export const FLUXO = ['fila','laser','dobra','solda','acab','terc','insp','exped','conc'];
 export const SETOR_IDS = ['laser','dobra','solda','acab','insp','exped'];
+
+// Um card só "usa" um setor (pode entrar nele / mostra o quadradinho) se tiver
+// horas estimadas > 0 para ele. Setores sem horas (terc) e não-setores
+// (fila/conc) estão sempre liberados — não exigem tempo estimado.
+export function cardUsaSetor(card, setorId) {
+  if (!SETOR_IDS.includes(setorId)) return true;
+  const min = card && card.min_setor ? parseInt(card.min_setor[setorId]) || 0 : 0;
+  return min > 0;
+}
 export const TRACK_COLS = COLS.filter(c => c.id !== 'fila' && c.id !== 'conc');
 export const TRACK_LABEL = {laser:'LA',dobra:'DO',solda:'SO',acab:'AC',terc:'TE',insp:'IN',exped:'EX'};
 export const PRINT_COLS = COLS.filter(c => !c.noCap);

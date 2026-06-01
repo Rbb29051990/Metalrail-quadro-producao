@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { weekLabel, nextWeekKey, weekKeyFromDate, COLS, FLUXO, TRACK_COLS, TRACK_LABEL, PRINT_COLS, minToTime } from './utils.js';
+import { weekLabel, nextWeekKey, weekKeyFromDate, COLS, FLUXO, TRACK_COLS, TRACK_LABEL, PRINT_COLS, minToTime, cardUsaSetor } from './utils.js';
 import { getCapMin, getUsedMin, getCardMin, saldoClass, saldoText, capPct, capColor } from './capacity.js';
 import { docRef, getDoc } from './firebase.js';
 import { saveWeek } from './sync.js';
@@ -29,6 +29,14 @@ export function reorderInColumn(colId, draggedId, targetId, insertBefore) {
 }
 
 // ─── DRAG & DROP ───────────────────────────────────
+// Bloqueia mover um card para um setor sem horas estimadas (volta para a origem).
+function podeMoverPara(card, colId) {
+  if (cardUsaSetor(card, colId)) return true;
+  const lbl = (COLS.find(c => c.id === colId) || {}).label || colId;
+  alert(`A OS ${card.os} não tem horas estimadas para o setor ${lbl}.\n\nO cartão voltará para o setor de origem. Edite a OS e informe as horas desse setor antes de movê-lo para lá.`);
+  return false;
+}
+
 export function setupDrop(el, colId) {
   el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('over'); });
   el.addEventListener('dragleave', () => el.classList.remove('over'));
@@ -37,6 +45,7 @@ export function setupDrop(el, colId) {
     if (state.dragId === null) return;
     const card = state.weekData.cards.find(x => x.id === state.dragId);
     if (!card || card.col === colId) return;
+    if (!podeMoverPara(card, colId)) return;
     card.col = colId;
     // Ao mover para nova coluna: vai para o fim (sem sobrescrever ordem manual herdada)
     const maxOrdem = state.weekData.cards.filter(c => c.col === colId && c.id !== card.id && c.ordem !== undefined);
@@ -70,6 +79,7 @@ export function setupCardDrop(el, cardId, colId) {
       reorderInColumn(colId, state.dragId, cardId, insertBefore);
     } else {
       // Movimento entre colunas — soltar sobre um card também funciona
+      if (!podeMoverPara(card, colId)) return;
       card.col = colId;
       const maxOrdem = state.weekData.cards.filter(c => c.col === colId && c.id !== card.id && c.ordem !== undefined);
       if (maxOrdem.length > 0) card.ordem = Math.max(...maxOrdem.map(c => c.ordem)) + 1;
@@ -141,7 +151,7 @@ export function render() {
         const showH = !['fila','conc'].includes(card.col) && mAtual > 0;
         const dtFmt = card.dataEntrega ? new Date(card.dataEntrega + 'T12:00:00').toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'}) : '';
         const idxAtual = FLUXO.indexOf(card.col);
-        const trackHTML = TRACK_COLS.map(tc => {
+        const trackHTML = TRACK_COLS.filter(tc => cardUsaSetor(card, tc.id)).map(tc => {
           const idxTc = FLUXO.indexOf(tc.id);
           const passed = idxAtual > idxTc;
           const current = card.col === tc.id;
