@@ -96,9 +96,9 @@ export function setupCardDrop(el, cardId, colId) {
 
 // ─── DRAG POR TOQUE (tablet / celular) ─────────────
 // O drag nativo HTML5 não funciona em telas de toque. Aqui usamos Pointer
-// Events: um toque parado (long-press ~0,2s) "pega" o card; depois ele segue
-// o dedo. Soltar sobre outra coluna move (respeitando a trava de horas);
-// soltar sobre um card da mesma coluna reordena. O mouse continua no drag nativo.
+// Events: arrastar o card na horizontal (o touch-action:pan-y mantém a rolagem
+// vertical da coluna intacta) "pega" o card, que passa a seguir o dedo. Soltar
+// sobre outra coluna move (respeitando a trava de horas). Mouse segue no drag nativo.
 let _touch = null;
 let _touchOver = null;
 
@@ -132,89 +132,76 @@ function setupTouchDrag(el, card) {
     if (e.pointerType === 'mouse') return;                    // mouse usa o drag nativo
     if (document.body.classList.contains('readonly')) return; // visitante não move
     if (e.target.closest('button')) return;                   // toque nos botões não arrasta
-    iniciarPossivelDrag(e, el, card);
+
+    const startX = e.clientX, startY = e.clientY, pid = e.pointerId;
+    let started = false, encerrado = false;
+
+    const onMove = ev => {
+      if (ev.pointerId !== pid) return;
+      if (!started) {
+        const dx = ev.clientX - startX, dy = ev.clientY - startY;
+        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+        if (Math.abs(dy) > Math.abs(dx)) { encerra(); return; } // vertical → deixa a coluna rolar
+        started = true;
+        try { el.setPointerCapture(pid); } catch (_) {}
+        comecarDrag(el, card, pid, startX, startY);
+      }
+      ev.preventDefault();
+      posClone(ev.clientX, ev.clientY);
+      autoScrollBoard(ev.clientX);
+      realcarAlvo(ev.clientX, ev.clientY);
+    };
+    const onUp = ev => {
+      if (ev.pointerId !== pid) return;
+      if (started) {
+        _touch.clone.style.display = 'none';                  // não interferir no elementFromPoint
+        const target = document.elementFromPoint(ev.clientX, ev.clientY);
+        desmontarDrag();
+        finalizarDropToque(card, target, ev.clientY);
+      }
+      encerra();
+    };
+    const onCancel = ev => {
+      if (ev.pointerId !== pid) return;
+      if (started) desmontarDrag();
+      encerra();
+    };
+    function encerra() {
+      if (encerrado) return; encerrado = true;
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      document.removeEventListener('pointercancel', onCancel);
+    }
+    document.addEventListener('pointermove', onMove, { passive: false });
+    document.addEventListener('pointerup', onUp);
+    document.addEventListener('pointercancel', onCancel);
   });
 }
 
-function iniciarPossivelDrag(e, el, card) {
-  const startX = e.clientX, startY = e.clientY, pointerId = e.pointerId;
-  let holdTimer = setTimeout(ativar, 220);
-
-  function onPreMove(ev) {
-    if (ev.pointerId !== pointerId) return;
-    // moveu antes do long-press → é rolagem: cancela o drag
-    if (Math.abs(ev.clientX - startX) > 10 || Math.abs(ev.clientY - startY) > 10) limpaPre();
-  }
-  function limpaPre() {
-    if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
-    document.removeEventListener('pointermove', onPreMove);
-    document.removeEventListener('pointerup', limpaPre);
-    document.removeEventListener('pointercancel', limpaPre);
-  }
-  document.addEventListener('pointermove', onPreMove, { passive: true });
-  document.addEventListener('pointerup', limpaPre);
-  document.addEventListener('pointercancel', limpaPre);
-
-  function ativar() {
-    holdTimer = null;
-    limpaPre();
-    const rect = el.getBoundingClientRect();
-    const clone = el.cloneNode(true);
-    clone.classList.add('touch-clone');
-    clone.style.width = rect.width + 'px';
-    document.body.appendChild(clone);
-    el.classList.add('dragging');
-    document.body.classList.add('touch-dragging');
-    try { el.setPointerCapture(pointerId); } catch (_) {}
-
-    _touch = { card, el, clone, pointerId, offX: startX - rect.left, offY: startY - rect.top };
-    posClone(startX, startY);
-    realcarAlvo(startX, startY);
-    if (navigator.vibrate) navigator.vibrate(15);
-
-    el.addEventListener('pointermove', onDragMove, { passive: false });
-    el.addEventListener('pointerup', onDragEnd);
-    el.addEventListener('pointercancel', onDragCancel);
-    el.addEventListener('contextmenu', prevent);
-    el.addEventListener('dragstart', prevent);            // evita o drag nativo no toque
-  }
+function comecarDrag(el, card, pointerId, startX, startY) {
+  const rect = el.getBoundingClientRect();
+  const clone = el.cloneNode(true);
+  clone.classList.add('touch-clone');
+  clone.style.width = rect.width + 'px';
+  document.body.appendChild(clone);
+  el.classList.add('dragging');
+  document.body.classList.add('touch-dragging');
+  el.addEventListener('contextmenu', prevent);
+  _touch = { card, el, clone, pointerId, offX: startX - rect.left, offY: startY - rect.top };
+  posClone(startX, startY);
+  realcarAlvo(startX, startY);
+  if (navigator.vibrate) navigator.vibrate(15);
 }
 
-function onDragMove(e) {
-  if (!_touch || e.pointerId !== _touch.pointerId) return;
-  e.preventDefault();
-  posClone(e.clientX, e.clientY);
-  autoScrollBoard(e.clientX);
-  realcarAlvo(e.clientX, e.clientY);
-}
-
-function desmontarDrag(t) {
-  t.clone.remove();
-  t.el.classList.remove('dragging');
-  try { t.el.releasePointerCapture(t.pointerId); } catch (_) {}
-  t.el.removeEventListener('pointermove', onDragMove);
-  t.el.removeEventListener('pointerup', onDragEnd);
-  t.el.removeEventListener('pointercancel', onDragCancel);
-  t.el.removeEventListener('contextmenu', prevent);
-  t.el.removeEventListener('dragstart', prevent);
+function desmontarDrag() {
+  if (!_touch) return;
+  _touch.clone.remove();
+  _touch.el.classList.remove('dragging');
+  _touch.el.removeEventListener('contextmenu', prevent);
+  try { _touch.el.releasePointerCapture(_touch.pointerId); } catch (_) {}
   document.body.classList.remove('touch-dragging');
   limparRealce();
-}
-
-function onDragEnd(e) {
-  if (!_touch || e.pointerId !== _touch.pointerId) return;
-  e.preventDefault();
-  const t = _touch; _touch = null;
-  t.clone.style.display = 'none';                       // não interferir no elementFromPoint
-  const target = document.elementFromPoint(e.clientX, e.clientY);
-  desmontarDrag(t);
-  finalizarDropToque(t.card, target, e.clientY);
-}
-
-function onDragCancel(e) {
-  if (!_touch || e.pointerId !== _touch.pointerId) return;
-  const t = _touch; _touch = null;
-  desmontarDrag(t);                                      // aborta sem mover
+  _touch = null;
 }
 
 function finalizarDropToque(card, target, y) {

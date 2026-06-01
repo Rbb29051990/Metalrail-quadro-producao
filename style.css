@@ -328,6 +328,11 @@
   }
 
   /* ─── DRAG POR TOQUE ─── */
+  /* Telas de toque: arrasto horizontal do card é tratado por JS; a rolagem
+     vertical (pan-y) da coluna continua normal. */
+  @media (pointer:coarse){
+    .card{touch-action:pan-y}
+  }
   .touch-clone{position:fixed;z-index:300;margin:0;pointer-events:none;opacity:.96;
     transform:scale(1.04);box-shadow:0 14px 34px rgba(0,0,0,.28);border-radius:8px;
     border:1px solid rgba(83,74,183,.4);background:#fff}
