@@ -326,3 +326,11 @@
   @media (hover:none){
     .card-btns{opacity:1}
   }
+
+  /* ─── DRAG POR TOQUE ─── */
+  .touch-clone{position:fixed;z-index:300;margin:0;pointer-events:none;opacity:.96;
+    transform:scale(1.04);box-shadow:0 14px 34px rgba(0,0,0,.28);border-radius:8px;
+    border:1px solid rgba(83,74,183,.4);background:#fff}
+  .col.over{outline:2px dashed rgba(83,74,183,.55);outline-offset:-2px}
+  body.touch-dragging{touch-action:none}
+  body.touch-dragging .card{cursor:grabbing}
