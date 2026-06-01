@@ -49,14 +49,11 @@ export async function syncToNext() {
   const concluidosOS = new Set(state.weekData.cards.filter(c => c.col === 'conc').map(c => c.os));
 
   if (!nextData.gerada) {
-    // Semana seguinte é espelho: atualiza preservando posições (col) já movidas
-    const osNextMap = {};
-    nextData.cards.forEach(c => { osNextMap[c.os] = c; });
+    // Semana seguinte é espelho: reflete fielmente a semana atual.
+    // Cada card é espelhado na MESMA coluna (col) da mãe (exceto concluídos, já filtrados).
+    // As capacidades do espelho permanecem independentes até a semana ser gerada.
     await setDoc(docRef(next), {
-      cards: pendentes.map((c, i) => {
-        const ex = osNextMap[c.os];
-        return {...JSON.parse(JSON.stringify(c)), id: i + 1, col: ex ? ex.col : c.col, carriedFrom: state.currentWeek};
-      }),
+      cards: pendentes.map((c, i) => ({...JSON.parse(JSON.stringify(c)), id: i + 1, carriedFrom: state.currentWeek})),
       caps: nextData.caps || {},
       nextId: pendentes.length + 1,
       gerada: false,
@@ -195,23 +192,15 @@ export async function syncFromPrev(week) {
   }
 
   // Semana NAO gerada (espelho):
-  // Cards adicionados diretamente nesta semana (sem carriedFrom da mae)
+  // Cards adicionados diretamente nesta semana (sem carriedFrom da mae) são preservados.
   const cardsDirectos = currData.cards.filter(c => !c.carriedFrom || c.carriedFrom !== prev);
-  // Mapa de OS ja existentes na filha (espelhados) para preservar col movida
-  const osFilhaMap = {};
-  currData.cards.filter(c => c.carriedFrom === prev).forEach(c => { osFilhaMap[c.os] = c; });
   const osDirectas = new Set(cardsDirectos.map(c => c.os));
 
-  // Para cada pendente da mae: preserva col se ja foi movido na filha
+  // Espelha cada pendente da mae na MESMA coluna (col) que ela tem na mãe.
+  // O espelho não mantém movimentações próprias: ele reflete fielmente a semana anterior.
   const espelhadosFiltrados = pendentes
     .filter(c => !osDirectas.has(c.os))
-    .map(card => {
-      const jaExiste = osFilhaMap[card.os];
-      if (jaExiste) {
-        return {...JSON.parse(JSON.stringify(card)), col: jaExiste.col, carriedFrom: prev};
-      }
-      return {...JSON.parse(JSON.stringify(card)), carriedFrom: prev};
-    });
+    .map(card => ({...JSON.parse(JSON.stringify(card)), carriedFrom: prev}));
 
   // Remonta cards: diretos preservados + espelhados com posicao respeitada
   let nextId = 1;
