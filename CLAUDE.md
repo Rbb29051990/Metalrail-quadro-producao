@@ -4,94 +4,118 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A single-file production-control kanban board ("Quadro de Produção") for Metalrail, a
-metal-fabrication shop. The entire app — HTML, CSS, and JS — lives in one file:
-`index.html` (~1465 lines). The UI language is Brazilian Portuguese; keep new
-user-facing strings in pt-BR.
+A production-control kanban board ("Quadro de Produção") for Metalrail, a metal-fabrication shop. The UI language is Brazilian Portuguese; keep new user-facing strings in pt-BR.
 
-There is **no build system, no package.json, no tests, and no dependencies to install.**
-Firebase and the Inter font are loaded from CDNs via ESM `import` inside a
-`<script type="module">`. To run it, open `index.html` in a browser (or serve the
-directory over HTTP, e.g. `python -m http.server`, so the module imports resolve).
-Edit the file directly — there is no transpile step.
+There is **no build system, no package.json, no tests, and no dependencies to install.** Firebase and the Inter font are loaded from CDNs. The app runs on GitHub Pages at **https://rbb29051990.github.io/Metalrail-quadro-producao/** — ES modules work natively over HTTPS.
+
+## File structure
+
+```
+index.html          HTML structure only (~110 lines)
+style.css           All CSS (~245 lines)
+app.js              Legacy monolith — kept as rollback backup, NOT the entry point
+js/
+  main.js           Entry point (<script type="module" src="js/main.js">)
+  firebase.js       Firebase config, db, auth, docRef()
+  utils.js          Time/week helpers + COLS, FLUXO, SETOR_IDS constants
+  state.js          Single shared mutable state object
+  capacity.js       Capacity math: getCardMin, getCapMin, getUsedMin, saldo*, cap*
+  render.js         render(), renderGerarBar(), renderDesempenho(), setupDrop/CardDrop,
+                    sortCards, reorderInColumn, atualizarBotoesNav, printBoard
+  sync.js           saveWeek(), syncToNext(), syncFromPrev(), loadWeek(),
+                    gerarProximaSemana(), setSyncStatus(), initSync()
+  card.js           Modal + delCard, editCard, saveCard, setUrgente, openModal, closeModal
+  auth.js           doLogin, doVisitor, doLogout, onAuthStateChanged setup
+```
 
 ## Backend & auth
 
-- **Firestore** is the single source of truth. One document per week in the `semanas`
-  collection, keyed `YYYY-Www` (e.g. `2026-W22`). `docRef(w)` builds the reference.
-- A week document is `{ cards, caps, nextId, gerada, parentWeek }`. `caps` maps a
-  sector id → capacity in minutes; `gerada` (boolean) is the central state flag (see below).
+- **Firestore** is the single source of truth. One document per week in the `semanas` collection, keyed `YYYY-Www` (e.g. `2026-W22`). `docRef(w)` in `firebase.js` builds the reference.
+- A week document is `{ cards, caps, nextId, gerada, parentWeek }`. `caps` maps sector id → capacity in minutes; `gerada` (boolean) is the central state flag.
 - Live updates use `onSnapshot`; writes use `setDoc` (whole-document overwrite, no merge).
-- **Firebase Auth** (email/password). Editors are hard-coded in the `EDITORS` array;
-  any other authenticated email, or the "visitor" button, gets a read-only view applied
-  via the `readonly` body class (CSS in the `/* MODO LEITURA */` block hides edit controls).
+- **Firebase Auth** (email/password). Editors are hard-coded in the `EDITORS` array in `auth.js`; any other authenticated email, or the "visitor" button, gets a read-only view applied via the `readonly` body class.
+
+## Shared state
+
+All mutable state lives in the single exported object from `js/state.js`:
+
+```js
+state.currentWeek   // String YYYY-Www, current board week
+state.weekData      // { cards, caps, nextId, gerada } — current week's Firestore doc
+state.isSaving      // re-entrancy guard around saveWeek()
+state.dragId / state.dragSourceCol
+state.editingId / state.isUrgente
+state.desempWeek / state.desempInicializado
+state.currentUser / state.isEditor / state.isVisitor
+```
+
+Any module that writes `state.foo = x` propagates the change to all other modules that imported the same object reference.
+
+## Dependency injection (render ↔ sync)
+
+`sync.js` calls `render()`, `renderGerarBar()`, `atualizarBotoesNav()` from `render.js`, but `sync.js` cannot import `render.js` directly (would create a cycle). The solution is `initSync()` called once in `main.js`:
+
+```js
+// main.js
+import { initSync, loadWeek } from './sync.js';
+import { render, renderGerarBar, atualizarBotoesNav } from './render.js';
+initSync({ render, renderGerarBar, atualizarBotoesNav });
+```
+
+**Always call `initSync` before `loadWeek`.**
 
 ## Domain model
 
-- A **card** is one OS (ordem de serviço / work order): `{ id, os, cliente, col,
-  min_setor, min_total, horas, dataEntrega, urgente, carriedFrom, ordem }`.
-- `min_setor` holds estimated minutes **per sector**; this is the canonical time data.
-  `horas`/`min_total` are derived. Time is stored as minutes; `timeToMin`/`minToTime`
-  convert to/from the `HH:MM` strings shown in inputs (`fmtTime`/`fmtCap` mask typing).
-- `col` is which board column the card sits in. The workflow order is `FLUXO`:
-  `fila → laser → dobra → solda → acab → terc → insp → exped → conc`. `fila` (queue)
-  and `conc` (done) plus `terc` (third-party) have no capacity tracking (`noCap`).
-- Capacity math (`getUsedMin`, `getSaldoMin`, `capPct`, etc.) sums `min_setor[col]` over
-  every card **not in `fila`** — i.e. once work leaves the queue it counts against every
-  sector's weekly load, regardless of the card's current column.
-- Ordering: `sortCards` puts cards with a manual `ordem` field first (ascending), then
-  the rest by `dataEntrega`. Drag-and-drop within a column rewrites `ordem`
-  (`reorderInColumn`); dragging across columns clears `ordem` and appends.
+- A **card** is one OS (ordem de serviço): `{ id, os, cliente, col, min_setor, min_total, horas, dataEntrega, urgente, carriedFrom, ordem }`.
+- `min_setor` holds estimated minutes **per sector**; this is the canonical time data. `horas`/`min_total` are derived.
+- `col` is which board column the card sits in. Workflow order is `FLUXO` (in `utils.js`): `fila → laser → dobra → solda → acab → terc → insp → exped → conc`. `fila`, `conc`, and `terc` have no capacity tracking (`noCap`).
+- Capacity math sums `min_setor[col]` over every card **not in `fila`** — once work leaves the queue it counts against every sector's weekly load.
+- Ordering: `sortCards` puts cards with a manual `ordem` field first, then by `dataEntrega`. Drag-and-drop within a column rewrites `ordem`; dragging across columns clears it.
 
-## The week-propagation model (the part that bites)
+## The week-propagation model (most bug-prone area)
 
-This is the most subtle and bug-prone area — read carefully before touching
-`syncFromPrev`, `syncToNext`, `gerarProximaSemana`, or `loadWeek`.
+A week is either an **espelho** (mirror, `gerada: false`) or **independente** (`gerada: true`).
 
-- A week is either an **espelho** (mirror, `gerada: false`) or **independente**
-  (`gerada: true`). A mirror week automatically reflects the non-`conc` cards of its
-  parent week (`parentWeek`); generating a week (`gerarProximaSemana`) snapshots it into
-  an independent copy that no longer auto-syncs existing cards.
-- `syncFromPrev(week)` runs on navigation/load and pulls from the parent. For a mirror it
-  rebuilds the card list while **preserving** cards added directly to the child and the
-  `col` of cards already moved within the child. For an independent week it only *adds*
-  newly-pending parent OS and *removes* OS that were completed in the parent.
-- `syncToNext()` pushes the current week's pending cards forward, but **only if the next
-  week already exists and has `parentWeek` pointing at the current week.** It must never
-  create a new week (that is `syncFromPrev`'s job on navigation) — doing so causes a
-  cascade (22→23→24…).
-- Known footgun, already fixed and easy to reintroduce: `loadWeek`'s `onSnapshot`
-  callback must **not** unconditionally call `syncToNext()`. Calling it while *viewing* a
-  mirror week overwrites that week from its parent, which retriggers the snapshot → infinite
-  loop that wipes the cards. The guarded check (next-week exists AND its `parentWeek ===
-  this week`) is what prevents it.
-- Navigation forward is gated by `atualizarBotoesNav` / the guards in `changeWeek` /
-  `changeDesempWeek`: past weeks are free; you can always peek one week past "today"; you
-  can only go beyond a future mirror week once it has been generated (`gerada: true`).
+- `syncFromPrev(week)` — runs on every navigation/load; pulls from parent week. For a mirror it rebuilds cards while preserving any `col` already moved in the child. For an independent week it only *adds* newly-pending OS and *removes* OS completed in the parent.
+- `syncToNext()` — pushes pending cards forward, but **only if the next week already exists and has `parentWeek` pointing at the current week.** Must never create a new week.
+- `loadWeek`'s `onSnapshot` callback must **not** call `syncToNext()` unconditionally — doing so while *viewing* a mirror week causes an infinite loop that wipes cards. The guarded check (`nextSnap.data().parentWeek === week`) is what prevents it.
+- `gerarProximaSemana()` snapshots the next week into an independent copy and immediately creates the week after it as a new mirror.
 
-## UI structure
+## window.* functions
 
-- Two tabs (`switchTab`): **Quadro** (the board, `render()`) and **Desempenho**
-  (per-sector occupancy dashboard, `renderDesempenho()`). The Desempenho tab tracks its
-  own `desempWeek` independent of the board's `currentWeek`.
-- The board, cards, modal, and print view are all built by string-templating `innerHTML`;
-  there is no framework. Event handlers are attached imperatively or exposed as
-  `window.fnName` so inline `onclick=` attributes can reach them — any handler referenced
-  from HTML must be assigned to `window`.
-- `printBoard()` opens a new window with a print-optimized one-page-per-sector layout.
-- `searchOS` queries the last 12 weeks up to `currentWeek` only (never future weeks, to
-  avoid showing mirrored duplicates).
+All functions referenced by `onclick`/`oninput`/`onchange` in HTML must be on `window`. Each module assigns its own:
+
+| Module | window.* functions |
+|---|---|
+| `utils.js` | `fmtTime`, `fmtCap` |
+| `render.js` | `printBoard` |
+| `sync.js` | `gerarProximaSemana` |
+| `card.js` | `delCard`, `editCard`, `setUrgente`, `openModal`, `closeModal`, `saveCard` |
+| `auth.js` | `doLogin`, `doVisitor`, `doLogout` |
+| `main.js` | `setCap`, `changeWeek`, `switchTab`, `changeDesempWeek`, `searchOS` |
 
 ## Conventions
 
-- Pure vanilla JS, no framework; match the existing terse, comment-in-pt-BR style.
-- All persistence goes through `saveWeek()` (sets `sync-status`, optionally propagates via
-  `syncToNext`). Don't call `setDoc` on the current week directly — let `saveWeek` own it.
-- `isSaving` is a re-entrancy guard around saves; respect it when adding new write paths.
+- All persistence goes through `saveWeek()` in `sync.js`. Never call `setDoc` on the current week directly.
+- `isSaving` is a re-entrancy guard; respect it when adding new write paths.
+- `render.js` imports `saveWeek` from `sync.js` directly (no cycle — `sync.js` does not import `render.js`).
+- `setCap` is defined in `main.js` (not `capacity.js`) because it needs both `saveWeek` and `render`.
 
-## Security note
+## Versionamento
 
-`index.html` embeds the public Firebase web config (expected for client apps — security
-must be enforced by Firestore rules, not by hiding these keys). Separately, the repo's
-sibling `../Secrets/secrets.md.txt` contains a real GitHub personal-access token in
-plaintext — treat it as compromised; it should be revoked and never committed.
+- Git repo: **https://github.com/Rbb29051990/Metalrail-quadro-producao** (private)
+- Working tree root: `Metalrail-quadro-producao-main/` (pasta local)
+- Branch de trabalho: `main`. Todo trabalho via PR — nunca commitar direto na `main`.
+- `gh` CLI instalado em `C:\Program Files\GitHub CLI\gh.exe`, autenticado como `Rbb29051990`.
+- **PowerShell stdin gotcha:** piping token via `|` em PS 5.1 corrompe bytes. Usar `cmd.exe /c 'echo TOKEN|"...gh.exe" auth login --with-token'`.
+
+## Rollback
+
+Se algo quebrar após a modularização, reverter uma linha em `index.html`:
+```html
+<!-- de: -->
+<script type="module" src="js/main.js"></script>
+<!-- para: -->
+<script type="module" src="app.js"></script>
+```
+O `app.js` original está intacto.
