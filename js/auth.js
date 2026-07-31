@@ -6,7 +6,8 @@ const EDITORS = [
   'andre@metalrail.com.br',
   'daniel@metalrail.com.br',
   'eduardo@metalrail.com.br',
-  'renan@metalrail.com.br'
+  'renan@metalrail.com.br',
+  'leoleonel@leoleonel.com.br'
 ];
 
 function showApp() {
