@@ -218,8 +218,26 @@ export async function loadWeek(week) {
   if (state.unsubscribeCurrent) state.unsubscribeCurrent();
   if (state.unsubscribeNext) state.unsubscribeNext();
 
-  // Sincroniza a partir da semana anterior ANTES de carregar
-  await syncFromPrev(week);
+  // Sincroniza a partir da semana anterior ANTES de carregar.
+  //
+  // SO PARA EDITOR. syncFromPrev termina num setDoc, ou seja, ABRIR o quadro
+  // gravava no banco -- inclusive quando quem abria era um visitante nao
+  // autenticado. Enquanto a regra do Firestore permitiu escrita anonima isso
+  // passou despercebido; no momento em que a regra for fechada, todo visitante
+  // ficaria preso no overlay "Conectando...", porque o await abaixo rejeitaria
+  // e a funcao abortaria antes de esconder o overlay.
+  //
+  // O try/catch existe pelo mesmo motivo: falha de sincronizacao nao pode
+  // impedir a LEITURA do quadro. Se o espelho nao rodar, o onSnapshot abaixo
+  // ainda mostra os dados que ja estao la.
+  if (state.isEditor) {
+    try {
+      await syncFromPrev(week);
+    } catch (e) {
+      console.warn('syncFromPrev falhou; seguindo em modo leitura', e);
+      setSyncStatus('err');
+    }
+  }
 
   state.unsubscribeCurrent = onSnapshot(docRef(week), (snap) => {
     state.weekData = snap.exists() ? snap.data() : {cards: [], caps: {}, nextId: 1, gerada: false};
@@ -244,5 +262,12 @@ export async function loadWeek(week) {
         }
       });
     }
-  }, () => setSyncStatus('err'));
+  }, (e) => {
+    // Sem isto, qualquer erro de leitura deixa o overlay "Conectando..." para
+    // sempre na tela: o callback de sucesso e o unico lugar que o escondia.
+    console.error('onSnapshot falhou', e);
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('board').style.display = 'grid';
+    setSyncStatus('err');
+  });
 }

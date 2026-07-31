@@ -1,0 +1,42 @@
+rules_version = '2';
+
+// Regras do Firestore do quadro de producao (projeto quadro-producao).
+//
+// POR QUE ESTE ARQUIVO EXISTE
+//   Ate 2026-07-30 as regras viviam apenas no console do Firebase, onde ninguem
+//   as revisava. Versiona-las torna cada mudanca de permissao uma alteracao de
+//   codigo, sujeita a revisao como qualquer outra.
+//
+// A DECISAO DE LEITURA (ADR-0020 do repositorio grupo-m-sistema)
+//   A leitura publica e DELIBERADA: o app tem o papel "Visitante -- somente
+//   leitura" e o responsavel decidiu mante-lo, ciente de que isso expoe
+//   carteira de OS, clientes, horas por setor e prazos a qualquer pessoa.
+//
+// O QUE ESTA REGRA CORRIGE
+//   A ESCRITA estava aberta a qualquer um, o que nunca foi decidido -- foi
+//   verificado em 2026-07-30 abrindo o quadro numa janela anonima: a tela
+//   carregou, e carregar executa um setDoc. Qualquer pessoa na internet podia,
+//   portanto, alterar a programacao da fabrica.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /semanas/{semana} {
+      allow read: if true;
+
+      allow write: if request.auth != null
+                   && request.auth.token.email_verified == true
+                   && request.auth.token.email in [
+                        'andre@metalrail.com.br',
+                        'daniel@metalrail.com.br',
+                        'eduardo@metalrail.com.br',
+                        'renan@metalrail.com.br'
+                      ];
+    }
+
+    // Nada alem de /semanas e acessivel.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
