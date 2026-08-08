@@ -1,0 +1,26 @@
+# Configuracao do GitHub Pages.
+#
+# POR QUE ESTE ARQUIVO EXISTE
+#   O Pages publica o REPOSITORIO INTEIRO, nao so os arquivos do site. Em
+#   2026-08-07, depois de tirar a lista de editores do `js/auth.js` e apagar o
+#   `app.js`, uma conferencia mais larga mostrou que
+#   `https://gestao.metalrail.com.br/firestore.rules` respondia 200 -- ou seja, a
+#   propria REGRA, com os seis e-mails, seguia legivel por qualquer um. O
+#   objetivo de nao entregar os enderecos estava furado por um arquivo que
+#   ninguem tinha pensado em testar.
+#
+# O QUE ESTA LISTA FAZ
+#   Impede que arquivos de configuracao, regra e documentacao sejam copiados
+#   para o site publicado. Eles continuam no repositorio (que e privado) e no
+#   historico do git; so deixam de ser servidos.
+#
+# AO ADICIONAR ARQUIVO NOVO NA RAIZ
+#   Pergunte se ele deve ser publico. Se nao, inclua aqui -- e confirme com
+#   `curl -o /dev/null -w "%{http_code}" https://gestao.metalrail.com.br/<arquivo>`,
+#   que precisa responder 404.
+exclude:
+  - firestore.rules
+  - firebase.json
+  - CLAUDE.md
+  - docs
+  - .claude
