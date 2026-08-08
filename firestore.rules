@@ -1,6 +1,15 @@
 rules_version = '2';
 
-// Regras do Firestore do quadro de producao (projeto quadro-producao).
+// Regras do Firestore do quadro de producao (projeto quadro-producao-grupo-m,
+// para onde os dados migraram em 2026-07-31 -- o `quadro-producao` original era
+// conta pessoal de terceiro e esta abandonado).
+//
+// ESTE ARQUIVO E O UNICO LUGAR ONDE SE DECIDE QUEM EDITA.
+//   Ate 2026-08-07 a lista tambem existia no `js/auth.js`, servido publicamente,
+//   o que entregava os enderecos a qualquer visitante. Ela saiu de la; o cliente
+//   agora so espelha a condicao `email_verified`. Para dar ou tirar acesso de
+//   alguem, mexa AQUI -- e lembre que editar o arquivo nao basta:
+//   `firebase deploy --only firestore:rules` e o que publica.
 //
 // POR QUE ESTE ARQUIVO EXISTE
 //   Ate 2026-07-30 as regras viviam apenas no console do Firebase, onde ninguem
@@ -30,6 +39,7 @@ service cloud.firestore {
                         'andre@metalrail.com.br',
                         'daniel@metalrail.com.br',
                         'eduardo@metalrail.com.br',
+                        'joaovictor@metalrail.com.br',
                         'renan@metalrail.com.br',
                         'leoleonel@leoleonel.com.br'
                       ];
