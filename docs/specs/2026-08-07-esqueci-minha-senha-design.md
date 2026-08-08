@@ -83,28 +83,38 @@ repetir mal o que a regra já faz bem.
 
 ### Risco residual (ação do responsável)
 
-Sem a lista no cliente, **qualquer conta autenticada e verificada vê a interface
-de edição**. Hoje existem só as cinco contas e a tela não oferece cadastro, mas a
-API de criação de conta pode estar aberta no projeto. Escrever seguiria
-bloqueado pelas regras — a pessoa veria botões que falham.
+Sem a lista no cliente, **qualquer conta autenticada e verificada veria a
+interface de edição**. Escrever seguiria bloqueado pelas regras — a pessoa veria
+botões que falham.
 
-⚠️ **Isto não foi testado criando uma conta**, deliberadamente: testar exposição
+✅ **RESOLVIDO em 2026-08-07:** a criação de conta foi **desativada** no console
+(*Authentication → Configurações → Ações do usuário → "Ativar criação
+(inscrição)" desmarcado*). Contas passam a nascer só pelo console.
+
+⚠️ **Isto nunca foi testado criando uma conta**, deliberadamente: testar exposição
 escrevendo em produção foi o erro registrado em 2026-07-31 e não se repete aqui.
-A verificação é um clique no console: **Authentication → Settings → User actions
-→ desmarcar "Enable create (sign-up)"**.
 
-### Limite da mensagem neutra (medido, não suposto)
+### A mensagem neutra vale de ponta a ponta — e a primeira medição estava errada
 
-A frase igual protege **a tela**, não a rede. No teste com `naoexiste@example.com`
-o Firebase respondeu **HTTP 400 (`EMAIL_NOT_FOUND`)**, e isso aparece no console
-do navegador: quem abrir o DevTools distingue 400 de 200 e descobre quais
-endereços têm conta, um a um.
+A **"Proteção contra enumeração de e-mails" está LIGADA** neste projeto, e
+verificada pela API:
 
-Esse teste prova que a **"Email enumeration protection" está DESLIGADA** neste
-projeto. Ligá-la (**Authentication → Settings → User actions**) faz a própria API
-responder igual nos dois casos, e só então a promessa da mensagem neutra vale de
-ponta a ponta. **É a segunda ação de console que depende do responsável**, e a
-mais relevante das duas para o objetivo declarado.
+| Entrada | Resposta |
+|---|---|
+| `naoexiste-teste-2@example.com` (não existe) | **HTTP 200**, corpo com o e-mail ecoado |
+| `nao-e-email` (mal formado) | HTTP 400 `INVALID_EMAIL` |
+
+Ou seja, a API **não distingue** conta existente de inexistente: só recusa o que
+nem tem forma de e-mail. A frase neutra da tela é honesta na rede também.
+
+📌 **Correção de um erro meu, registrada porque quase virou recomendação errada.**
+A primeira versão deste documento afirmava que a proteção estava **desligada**,
+"medido, não suposto", a partir de um `HTTP 400` visto no console do navegador. O
+400 existia mesmo — mas era do teste **seguinte**, com o e-mail mal formado.
+**Atribuí o erro à requisição errada e transformei uma coincidência de ordem numa
+conclusão.** A lição: quando a evidência é um erro solto no console, **confirmar
+qual requisição o produziu** antes de concluir qualquer coisa — um `curl` direto
+ao endpoint teria desfeito a dúvida em dez segundos, e foi ele que a desfez.
 
 ## Verificação
 
