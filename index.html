@@ -17,9 +17,11 @@
       <div class="login-title">Controle de Produção</div>
     </div>
     <div class="login-subtitle">Metalrail</div>
-    <div class="login-fg"><label>E-mail</label><input id="login-email" type="email" placeholder="seu@metalrail.com.br" /></div>
+    <div class="login-fg"><label>E-mail</label><input id="login-email" type="email" placeholder="seu@email.com.br" /></div>
     <div class="login-fg"><label>Senha</label><input id="login-senha" type="password" placeholder="••••••••" /></div>
+    <div class="login-forgot"><button type="button" class="login-link" id="login-forgot-btn" onclick="doReset()">Esqueci minha senha</button></div>
     <div class="login-err" id="login-err"></div>
+    <div class="login-info" id="login-info"></div>
     <button class="login-btn" onclick="doLogin()">Entrar como editor</button>
     <button class="login-visitor" onclick="doVisitor()">👁 Acessar como visitante (somente leitura)</button>
   </div>
