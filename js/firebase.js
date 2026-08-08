@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
 
 // Projeto do Grupo M (organizacao leoleonel.com.br), criado em 2026-07-31 para o
 // quadro deixar de depender de uma conta pessoal de terceiro. Os dados das 12
@@ -19,6 +19,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export const auth = getAuth(app);
-export { getDoc, setDoc, onSnapshot, signInWithEmailAndPassword, signOut, onAuthStateChanged };
+export { getDoc, setDoc, onSnapshot, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail };
 
 export function docRef(w) { return doc(db, 'semanas', w); }
