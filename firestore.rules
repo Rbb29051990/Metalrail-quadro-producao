@@ -40,6 +40,7 @@ service cloud.firestore {
                         'daniel@metalrail.com.br',
                         'eduardo@metalrail.com.br',
                         'joaovictor@metalrail.com.br',
+                        'luciana@metalrail.com.br',
                         'renan@metalrail.com.br',
                         'leoleonel@leoleonel.com.br'
                       ];

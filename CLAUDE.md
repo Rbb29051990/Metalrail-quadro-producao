@@ -34,7 +34,7 @@ js/
 - **Firestore** is the single source of truth. One document per week in the `semanas` collection, keyed `YYYY-Www` (e.g. `2026-W22`). `docRef(w)` in `firebase.js` builds the reference.
 - A week document is `{ cards, caps, nextId, gerada, parentWeek }`. `caps` maps sector id → capacity in minutes; `gerada` (boolean) is the central state flag.
 - Live updates use `onSnapshot`; writes use `setDoc` (whole-document overwrite, no merge).
-- **Firebase Auth** (email/password). **Authorization lives in `firestore.rules`, not in the client.** The rule lists the five editor emails and requires `email_verified == true`; `auth.js` merely mirrors that second condition (`state.isEditor = !!user.emailVerified`) to decide whether to show the editing UI. The "visitor" button, and any unverified account, gets a read-only view via the `readonly` body class.
+- **Firebase Auth** (email/password). **Authorization lives in `firestore.rules`, not in the client.** The rule lists the editor emails and requires `email_verified == true`; `auth.js` merely mirrors that second condition (`state.isEditor = !!user.emailVerified`) to decide whether to show the editing UI. The "visitor" button, and any unverified account, gets a read-only view via the `readonly` body class.
 - **Never put the editor email list back into client code.** It was there until 2026-08-07 and, because `/js/auth.js` is served publicly, it handed every address — and the company domain — to any visitor. If the UI ever needs to know who is an editor, derive it from something the server controls (a custom claim), not a hard-coded array.
 
 ## Shared state
